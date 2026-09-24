@@ -30,7 +30,7 @@ Each rule in `SKILL.md` exists for one of these reasons. An edit that weakens a 
 
 ## Editing
 
-- Bump `metadata.version` with semver whenever accepted behavior changes.
+- Bump `metadata.version` by the release-versioning skill's rules for skills.
 - Quote frontmatter string values and keep bullets capitalized and parallel.
 - Use no em dashes and no prose-joining semicolons.
 - Keep the skill opinionated without repeating one point in several sections. Rationale lives here, rules live in `SKILL.md`.
@@ -45,7 +45,7 @@ Each rule in `SKILL.md` exists for one of these reasons. An edit that weakens a 
 ## Before finishing
 
 - `SKILL.md` and `README.md` describe the same behavior, and `SKILL_NAME` in the script equals the frontmatter `name`, so new guards carry the current name.
-- The version changed if and only if accepted behavior changed.
+- The version was bumped as the release-versioning skill requires.
 - Script syntax, help, scratch generation, Archive exclusion at every depth, and two-pass idempotency pass.
 - The consolidation marker survives a plain run, is read back on the next run, and `--consolidated` is refused while errors or Context-Inbox files remain.
 - A frontmatter block with a `metadata:` mapping, a list, or a block scalar under an optional key indexes cleanly.

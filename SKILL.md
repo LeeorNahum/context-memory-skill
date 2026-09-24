@@ -3,7 +3,7 @@ name: "context-memory"
 description: "Context Memory (CM). Use when creating, saving, organizing, or reorganizing a project's durable knowledge in a Context directory: plans, decisions, opinions, status, and records as Markdown. Use whenever the user states a decision, preference, opinion, or correction about the project, even without asking to save it, when the user says to save, note, remember, or document something, when reading or maintaining a Context directory or its index, when adding to a document in one, when a Context-Inbox directory needs draining, or when the user asks to tidy, audit, or consolidate a Context directory or the generator says a pass is due. Also use whenever a harness offers its own memory, recall, or auto-save store for project knowledge, because a Context directory supersedes it. Applies only where a Context directory exists or is called for. Not for personal reminders or preferences that span unrelated projects, and not for code documentation, READMEs, or comments that live with the source."
 metadata:
   author: "Leeor Nahum"
-  version: "3.0.0"
+  version: "3.1.0"
 ---
 
 # Context Memory
@@ -39,6 +39,7 @@ A whole-directory cleanup means an editorial audit, not only index regeneration.
 - Three or four levels of meaningful subdirectories are healthy. Avoid keeping files together merely because the first folder layout already exists.
 - Root-level files are reserved for project-wide owners such as current status or a master plan.
 - One current fact has one owner. Other documents link to it.
+- A Context directory moves with its project. When a project moves, or a planning repository closes into a product repository, its Context goes along, into the successor's Context or its Archive, and the old place keeps only a pointer. A planning Context that is left behind is not an archive, it is a store nobody reads.
 - Split a long document when it contains multiple owners, independently changing sections, or a reading path that requires repeated searching. Length alone is not the rule.
 
 ## Naming And Ownership

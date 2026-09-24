@@ -1,6 +1,6 @@
 {
   "name": "context-memory",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Regenerates the active index in a Context directory's AGENTS.md, validates its frontmatter, and says when a consolidation pass is due.",
   "type": "module",
   "bin": {
