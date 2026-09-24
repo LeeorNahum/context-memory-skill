@@ -1,4 +1,4 @@
-# context-memory-skill
+# Context Memory Skill
 
 An Agent Skill that gives a project a `Context/` directory: its memory, written as Markdown in the repository, so what a project knows survives the session that learned it.
 
