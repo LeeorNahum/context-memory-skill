@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Rules for editing the **context-memory (CM)** skill. User-facing guidance lives in `SKILL.md`. `README.md` is the human skim layer.
+Rules for editing the **context-memory** skill. User-facing guidance lives in `SKILL.md`. `README.md` is the human skim layer.
 
 ## File roles
 

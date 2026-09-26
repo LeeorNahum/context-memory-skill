@@ -1,9 +1,9 @@
 ---
 name: "context-memory"
-description: "Context Memory (CM). Use when creating, saving, organizing, or reorganizing a project's durable knowledge in a Context directory: plans, decisions, opinions, status, and records as Markdown. Use whenever the user states a decision, preference, opinion, or correction about the project, even without asking to save it, when the user says to save, note, remember, or document something, when reading or maintaining a Context directory or its index, when adding to a document in one, when a Context-Inbox directory needs draining, or when the user asks to tidy, audit, or consolidate a Context directory or the generator says a pass is due. Also use whenever a harness offers its own memory, recall, or auto-save store for project knowledge, because a Context directory supersedes it. Applies only where a Context directory exists or is called for. Not for personal reminders or preferences that span unrelated projects, and not for code documentation, READMEs, or comments that live with the source."
+description: "Use when creating, saving, organizing, or reorganizing a project's durable knowledge in a Context directory: plans, decisions, opinions, status, and records as Markdown. Use whenever the user states a decision, preference, opinion, or correction about the project, even without asking to save it, when the user says to save, note, remember, or document something, when reading or maintaining a Context directory or its index, when adding to a document in one, when a Context-Inbox directory needs draining, or when the user asks to tidy, audit, or consolidate a Context directory or the generator says a pass is due. Also use whenever a harness offers its own memory, recall, or auto-save store for project knowledge, because a Context directory supersedes it. Applies only where a Context directory exists or is called for. Not for personal reminders or preferences that span unrelated projects, and not for code documentation, READMEs, or comments that live with the source."
 metadata:
   author: "Leeor Nahum"
-  version: "3.1.0"
+  version: "3.1.1"
 ---
 
 # Context Memory
