@@ -1,16 +1,14 @@
 ---
 name: "context-memory"
-description: "Use when creating, saving, organizing, or reorganizing a project's durable knowledge in a Context directory: plans, decisions, opinions, status, and records as Markdown. Use whenever the user states a decision, preference, opinion, or correction about the project, even without asking to save it, when the user says to save, note, remember, or document something, when reading or maintaining a Context directory or its index, when adding to a document in one, when a Context-Inbox directory needs draining, or when the user asks to tidy, audit, or consolidate a Context directory or the generator says a pass is due. Also use whenever a harness offers its own memory, recall, or auto-save store for project knowledge, because a Context directory supersedes it. Applies only where a Context directory exists or is called for. Not for personal reminders or preferences that span unrelated projects, and not for code documentation, READMEs, or comments that live with the source."
+description: "Use for any work in a project where a Context directory exists, the user asks for one, or the project's instructions call for one, from investigation and routine edits to handoffs between sessions, even when nobody asks to save or remember anything. Captures and organizes the knowledge a project needs across turns and sessions: decisions, preferences, opinions, corrections, plans, next steps, current state, and discoveries. Also use to create, read, file, index, audit, tidy, or consolidate that Context, to drain a Context-Inbox directory or act on a due consolidation pass, and whenever a harness offers its own memory, recall, or auto-save store for that project's knowledge. Not for personal reminders or preferences that span unrelated projects. Code documentation, READMEs, and comments stay with the source, but work on them still triggers capture of project knowledge."
 metadata:
   author: "Leeor Nahum"
-  version: "3.1.1"
+  version: "3.2.0"
 ---
 
 # Context Memory
 
 `Context/` is the project's memory: what it knows that is not code, as plans, research, decisions, rationale, status, schedules, references, and records. It is project knowledge, not a second instruction hierarchy.
-
-When the user states a decision, preference, opinion, constraint, or correction about the project, write it into its owning document in the same turn, unasked. Saying it once is the request. Record corrections and confirmed approaches alike, update the owning document rather than adding a duplicate, and delete what turns out to be wrong. When the user says to remove something, remove it. Record a standing rule against it only if it keeps returning.
 
 Topical documents state facts, opinions, constraints, decisions, and plans directly. Rules that govern how an agent works across tasks belong in the nearest applicable `AGENTS.md`. A plan, checklist, decision, or runbook may still contain instructions when those instructions are the subject of the document.
 
@@ -29,6 +27,19 @@ This governs durable project knowledge only. A harness memory that carries perso
 Read `Context/AGENTS.md` first, then load only the active documents whose names and descriptions match the task. Search within the relevant topic when more than one owner is plausible.
 
 A whole-directory cleanup means an editorial audit, not only index regeneration. Inspect active ownership, duplication, stale status, instruction leakage, format choice, directory density, navigation, and historical material.
+
+## Capture
+
+Write project knowledge into its owning document in the same turn, unasked, whether it comes from the user, the work, or a source. Saying it once is the request, and nobody has to say save, note, or remember. Preserve what affects how the work continues or would otherwise need rediscovery:
+
+- Decisions, preferences, opinions, constraints, and corrections, with confirmed approaches recorded as readily as corrections.
+- Plans and next steps, with their timing and dependencies.
+- Changes in the state of the work: what is done, what is waiting and on whom, and what is due.
+- Discoveries from the work or a source, with a reference where it supports later verification.
+
+Capture what the work established rather than narrating the turn. A log belongs in Context when its history is useful later in its own right, such as a record of runs, submissions, or contacts. Keep proposals apart from agreed plans, attempts apart from finished work, and inferences apart from confirmed facts. Write a choice as decided only when the user decided it, and name who takes every pending step, so a step the user said they will take is never left for the next session to take. A turn that adds or changes no such knowledge needs no capture update.
+
+Update the owning document rather than adding a duplicate. When a state, decision, or plan changes, search the relevant documents for statements and procedures that depend on it and reconcile them in the same turn, keeping the current fact in one owner and linking to it elsewhere. Delete what turns out to be wrong. When the user says to remove something, remove it. Record a standing rule against it only if it keeps returning.
 
 ## Core Structure
 
@@ -91,7 +102,7 @@ npx --yes github:LeeorNahum/context-memory-skill <path-to-Context>
 
 Node is the only requirement either way. The remote route fetches the script from its repository and needs network access the first time on a machine.
 
-**The generator's warnings are work, not notes.** It reports the index size, flags frontmatter problems, warns when a directory exceeds the file counts below, when a description is shaped like a summary, when a filename is only a date, while a Context-Inbox directory is waiting to be drained, and when a consolidation pass is due by its cadence. A warning is a task to do in that pass, or to name explicitly as deferred with a reason. Reading one and continuing is how a directory becomes unusable while every individual pass looks fine.
+**The generator's warnings are work, not notes.** It reports the index size, flags frontmatter problems, warns when a directory exceeds the file counts below, when a description is shaped like a summary, when a filename is only a date, while a Context-Inbox directory is waiting to be drained, and when a consolidation pass is due by its cadence. A warning is a task, started in the turn that saw it, and only the user can defer one. Reading one and continuing is how a directory becomes unusable while every individual pass looks fine.
 
 `--consolidated` records a finished consolidation pass and `--cadence=<days>` sets and remembers how long one stays current, both for the Context named on the command line only. `--nested` also scans the folder that holds this Context, two levels deep, for other indexed Context directories and regenerates each, which is how a workspace of projects checks all of them in one command. `--help` has the details.
 
@@ -118,23 +129,24 @@ Archiving is not deletion and is not summarizing, so it is cheap and should not 
 
 ## Context-Inbox
 
-`Context-Inbox/` is an optional folder beside `Context/` where the user, a helper, or an in-progress organization pass drops material for the agent that owns the Context to file. The rule for an inbox is zero. The agent that owns the Context does not use the inbox and files straight into Context. When the inbox exists in a Git repository, add it to `.gitignore` before placing files there. Inspect every item, move current knowledge into its active owner, preserve worthwhile history in Archive, discard only clear noise, then remove the empty folder. The inbox is a convention, not a gate: anything the user hands over to be saved, by whatever route, is filed the same way. Filing is editorial. Keep each item in the form its content needs, so text that arrived as a picture becomes text, pieces of one record that were split only by how they arrived become one document, and pieces that are separate on purpose stay separate.
+`Context-Inbox/` is an optional folder beside `Context/` where the user, a helper, or an in-progress organization pass drops material for the agent that owns the Context to file. The rule for an inbox is zero. The agent that owns the Context does not use the inbox and files straight into Context. Every Git repository that holds a Context directory lists `Context-Inbox/` in its `.gitignore`, whether or not an inbox exists yet, and the generator adds the line when it is missing. Inspect every item, move current knowledge into its active owner, preserve worthwhile history in Archive, discard only clear noise, then remove the empty folder. The inbox is a convention, not a gate: anything the user hands over to be saved, by whatever route, is filed the same way. Filing is editorial. Keep each item in the form its content needs, so text that arrived as a picture becomes text, pieces of one record that were split only by how they arrived become one document, and pieces that are separate on purpose stay separate.
 
 ## Consolidation
 
-A directory that is only written to during work drifts: statuses go stale, documents disagree, logs outgrow their readers, Context-Inbox fills, descriptions fall behind their bodies. A consolidation pass is the whole-directory editorial audit from Reading Discipline plus a Context-Inbox drain, done as its own pass rather than folded into other work, and recorded by running the generator with `--consolidated`. A contradiction is resolved when the evidence in Context settles it, and otherwise recorded in its owning document.
+A directory that is only written to during work drifts: statuses go stale, documents disagree, logs outgrow their readers, Context-Inbox fills, descriptions fall behind their bodies. A consolidation pass is the whole-directory editorial audit from Reading Discipline plus a Context-Inbox drain, done as its own pass rather than folded into other work, and recorded by running the generator with `--consolidated`, never by editing the marker by hand. A contradiction is resolved when the evidence in Context settles it, and otherwise recorded in its owning document.
 
-The generator decides when one is due. It keeps the date of the last pass and the cadence in a comment above the index and warns once the cadence has elapsed, seven days unless `--cadence` set another for that directory. A waiting Context-Inbox is a drain task on its own, reported every run until it is empty, and a pass cannot be recorded while it holds files. A project's instructions may add a trigger and steps of their own on top.
+The generator decides when one is due. It keeps the date of the last pass and the cadence in a comment above the index and warns once the cadence has elapsed, seven days unless `--cadence` set another for that directory. A waiting Context-Inbox is a drain task on its own, reported every run until it is empty, and a pass cannot be recorded while it holds files. A due pass starts in the turn that sees the warning, not in a later session. Hand it to a fresh background subagent when the harness offers one, with the Context path and this skill, because the working session's context is full of its own task and the pass needs a clear view of the whole directory. The working session keeps working, reviews what the pass changed when it reports, and leaves files the pass is editing alone until then. Without background subagents, run the pass before finishing the turn. A project's instructions may add a trigger and steps of their own on top.
 
 ## Validation
 
 Before finishing:
 
-- Run the generator and fix active frontmatter errors.
+- Check the handoff by reading the repository as a fresh agent would, with only the repository and the word "continue": it can find the current state, the intended next steps, the constraints, and the open questions without this conversation. Save what is missing, reconcile what the turn made stale, and record an unresolved question as unresolved.
+- Run the generator after active Context changes or when index maintenance is requested, and fix active frontmatter errors.
 - Confirm edited frontmatter matches the current purpose.
 - Confirm current facts and opinions have one active owner.
 - Confirm agent-wide rules live in `AGENTS.md` and document-specific procedures remain with their subject.
 - Confirm local links and active wiki links resolve.
 - Confirm directory density was reviewed rather than preserved by inertia.
-- Confirm every generator warning was acted on or explicitly deferred with a reason.
+- Confirm every generator warning was acted on, handed to a running consolidation pass, or deferred by the user.
 - Confirm Context-Inbox is gone after a drain.

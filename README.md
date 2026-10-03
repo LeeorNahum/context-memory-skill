@@ -4,7 +4,7 @@ An Agent Skill that gives a project a `Context/` directory: its memory, written 
 
 ## Why
 
-Agents forget between sessions, and the memory a harness offers is keyed to one machine or one path, invisible in a diff, and lost on a move. A `Context/` directory is versioned with the code, readable by any agent or person, and travels with a clone. One fact has one owner, so two copies never drift apart in silence. And an agent that follows this skill saves what you tell it the first time, without being asked to remember.
+Agents forget between sessions, and the memory a harness offers is keyed to one machine or one path, invisible in a diff, and lost on a move. A `Context/` directory is versioned with the code, readable by any agent or person, and travels with a clone. One fact has one owner, so two copies never drift apart in silence. And an agent that follows this skill writes down what it decides, learns, and plans as it works, without being asked to remember, so a fresh session can pick up where the last one stopped.
 
 ## How it works
 
@@ -16,7 +16,7 @@ Agents forget between sessions, and the memory a harness offers is keyed to one 
 ## Files
 
 - `SKILL.md` contains the Context directory contract.
-- `scripts/index.mjs` regenerates the active index, validates active frontmatter, warns when a directory or a description has outgrown its shape or a Context-Inbox is waiting, and says when a consolidation pass is due.
+- `scripts/index.mjs` regenerates the active index, validates active frontmatter, warns when a directory or a description has outgrown its shape or a Context-Inbox is waiting, says when a consolidation pass is due, and keeps `Context-Inbox/` out of Git.
 - `package.json` exposes the generator as a `bin`, so it runs from the repository without being installed.
 - `AGENTS.md` is the maintenance contract for editing this skill, with the design notes behind each rule.
 

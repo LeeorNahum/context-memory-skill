@@ -1,0 +1,292 @@
+{
+ "skill_name": "context-memory",
+ "evals": [
+  {
+   "id": 1,
+   "name": "plan-handoff",
+   "fixture": "quotes",
+   "prompt": "Both enclosure quotes are in. Let's go with Bolt Plastics, the 2-week lead time matters more than the price, and switch the enclosure to black since Bolt doesn't do blue. Update the BOM. I'll pay the deposit tomorrow and pick this up in a new session.\n\nWork only inside the current directory.",
+   "expected_output": "The BOM row names Bolt and black, and Context alone tells a fresh session the supplier and color decision with its reason, that quotes are in, and that paying the deposit is the user's pending next step.",
+   "assertions": [
+    {
+     "id": "plan-handoff-01",
+     "kind": "check",
+     "text": "The BOM enclosure row names Bolt Plastics and black, with unit cost 6.10."
+    },
+    {
+     "id": "plan-handoff-02",
+     "kind": "semantic",
+     "text": "Decisions states Bolt Plastics as the chosen supplier with the lead-time reason, and black as the current color, with blue no longer stated as current."
+    },
+    {
+     "id": "plan-handoff-03",
+     "kind": "semantic",
+     "text": "Context, in Status or a document Status points to, says both quotes are in and that the deposit is still to be paid by the user, with its date, as the next step, and Status no longer says it is waiting on quotes."
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "name": "quote-comparison",
+   "fixture": "quotes",
+   "prompt": "Compare the two enclosure quotes for me: total cost for 100 units including tooling, and lead time.\n\nWork only inside the current directory.",
+   "expected_output": "The answer compares $2,380 over 4 weeks with $1,510 over 2 weeks, and Context no longer claims the quotes are outstanding.",
+   "assertions": [
+    {
+     "id": "quote-comparison-01",
+     "kind": "semantic",
+     "text": "The final answer gives both totals ($2,380 for Acme, $1,510 for Bolt) and both lead times."
+    },
+    {
+     "id": "quote-comparison-02",
+     "kind": "semantic",
+     "text": "Status no longer says it is waiting on quotes, and Context records that both quotes are in, with the comparison or a pointer to the quote files."
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "name": "edit-hides-decision",
+   "fixture": "base",
+   "prompt": "Fix the typos in the README. Also, we're dropping the three brightness levels, it'll just be on and off, so make the README match.\n\nWork only inside the current directory.",
+   "expected_output": "A corrected README describing on and off, and the brightness decision recorded in Decisions.",
+   "assertions": [
+    {
+     "id": "edit-hides-decision-01",
+     "kind": "check",
+     "text": "README exists, no longer contains the misspellings, and no longer mentions three brightness levels."
+    },
+    {
+     "id": "edit-hides-decision-02",
+     "kind": "semantic",
+     "text": "Decisions states that the lamp is on and off only, replacing the three brightness levels."
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "name": "typo-only",
+   "fixture": "base",
+   "prompt": "Fix the typos in README.md.\n\nWork only inside the current directory.",
+   "expected_output": "A corrected README and no change to Context.",
+   "assertions": [
+    {
+     "id": "typo-only-01",
+     "kind": "check",
+     "text": "README exists and no longer contains the misspellings."
+    },
+    {
+     "id": "typo-only-02",
+     "kind": "check",
+     "text": "Nothing under Context/ changed and no Context-Inbox was created."
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "name": "general-question",
+   "fixture": "base",
+   "prompt": "In general, what's the difference between tooling cost and unit cost when you get parts molded?\n\nWork only inside the current directory.",
+   "expected_output": "An explanation and no change to the project.",
+   "assertions": [
+    {
+     "id": "general-question-01",
+     "kind": "semantic",
+     "text": "The final answer explains tooling as a one-time cost and unit cost as a per-part cost."
+    },
+    {
+     "id": "general-question-02",
+     "kind": "check",
+     "text": "No project file changed, apart from a .gitignore line for Context-Inbox."
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "name": "state-change-draft",
+   "fixture": "quotes",
+   "prompt": "I told Acme no thanks this morning. Draft a short, polite email to Bolt Plastics asking for the deposit invoice and save it as drafts/bolt-invoice.txt. Don't send anything, I'll send it myself.\n\nWork only inside the current directory.",
+   "expected_output": "A saved draft, and Status saying the user declined Acme and that the invoice email is drafted and waiting on the user to send.",
+   "assertions": [
+    {
+     "id": "state-change-draft-01",
+     "kind": "check",
+     "text": "drafts/bolt-invoice.txt exists, names Bolt, and asks for the deposit invoice."
+    },
+    {
+     "id": "state-change-draft-02",
+     "kind": "semantic",
+     "text": "Context, in Status or a document Status points to, says the user declined Acme, that the invoice email is drafted but not sent, and that the user sends it, and Status no longer says it is waiting on quotes."
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "name": "reconcile-dependents",
+   "fixture": "reconcile",
+   "prompt": "Bolt just told me they can't start our run until December. We're switching to Acme, and blue is back since Acme can do it. Get the BOM right.\n\nWork only inside the current directory.",
+   "expected_output": "The BOM, Decisions, Status, and the Launch Plan all agree on Acme and blue, and nothing still promises dates that depended on Bolt.",
+   "assertions": [
+    {
+     "id": "reconcile-dependents-01",
+     "kind": "check",
+     "text": "The BOM enclosure row names Acme and blue, with unit cost 4.80."
+    },
+    {
+     "id": "reconcile-dependents-02",
+     "kind": "check",
+     "text": "No active document still says the Bolt enclosures arrive by 2026-10-12."
+    },
+    {
+     "id": "reconcile-dependents-03",
+     "kind": "semantic",
+     "text": "Acme and blue are the current supplier and color wherever Context states them, documents may point to the owner instead of repeating it, and no active document still presents Bolt or a date that depended on Bolt as the plan."
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "name": "inbox-drain",
+   "fixture": "inbox",
+   "prompt": "I left my notes from the Lumen call in the inbox folder. Can you deal with them?\n\nWork only inside the current directory.",
+   "expected_output": "Every useful fact in the notes is filed into its owner (the November price drop to $1.05, the forecast the user agreed to send by Oct 15, the contact), the inbox folder is gone, and Git ignores Context-Inbox through the repository's own .gitignore.",
+   "assertions": [
+    {
+     "id": "inbox-drain-01",
+     "kind": "check",
+     "text": "The Context-Inbox folder no longer exists."
+    },
+    {
+     "id": "inbox-drain-02",
+     "kind": "check",
+     "text": "The repository's own .gitignore makes Git ignore Context-Inbox."
+    },
+    {
+     "id": "inbox-drain-03",
+     "kind": "semantic",
+     "text": "Context holds the $1.05 price from November, the forecast due Oct 15 as the user's commitment, and Dana as the Lumen contact."
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "name": "price-decision",
+   "fixture": "base",
+   "prompt": "We're pricing it at $39. Put the price in the README.\n\nWork only inside the current directory.",
+   "expected_output": "README shows $39, Decisions records the price, and Git ignores Context-Inbox.",
+   "assertions": [
+    {
+     "id": "price-decision-01",
+     "kind": "check",
+     "text": "README shows $39."
+    },
+    {
+     "id": "price-decision-02",
+     "kind": "check",
+     "text": "The repository's own .gitignore makes Git ignore Context-Inbox."
+    },
+    {
+     "id": "price-decision-03",
+     "kind": "semantic",
+     "text": "Decisions states $39 as the retail price."
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "name": "consolidation-due",
+   "fixture": "due",
+   "prompt": "Change the LED module unit cost in the BOM to $1.05.\n\nWork only inside the current directory.",
+   "expected_output": "The BOM shows $1.05, and the overdue consolidation pass is finished in the same session: the stale battery and quote lines are fixed, the finished build steps are archived, and the pass is recorded.",
+   "assertions": [
+    {
+     "id": "consolidation-due-01",
+     "kind": "check",
+     "text": "The BOM LED module row has unit cost 1.05."
+    },
+    {
+     "id": "consolidation-due-02",
+     "kind": "check",
+     "text": "The consolidation marker shows the session's date."
+    },
+    {
+     "id": "consolidation-due-03",
+     "kind": "check",
+     "text": "Prototype Build Steps is no longer an active document, and its content still exists under an Archive folder."
+    },
+    {
+     "id": "consolidation-due-04",
+     "kind": "semantic",
+     "text": "Status no longer presents the 1800 mAh battery or waiting on quotes as current, and nothing else in Context contradicts Decisions."
+    }
+   ]
+  },
+  {
+   "id": 11,
+   "name": "create-context",
+   "fixture": "bare",
+   "prompt": "We've settled the launch: the lamp ships in March 2027 at $35, and we're skipping Kickstarter. Put the price in the README.\n\nWork only inside the current directory.",
+   "expected_output": "README shows $35, and a Context directory now exists with a valid index and a document holding the ship date, price, and the no-Kickstarter decision.",
+   "assertions": [
+    {
+     "id": "create-context-01",
+     "kind": "check",
+     "text": "README shows $35."
+    },
+    {
+     "id": "create-context-02",
+     "kind": "check",
+     "text": "Context/AGENTS.md holds a generated index that lists every active document, and the generator reports no errors."
+    },
+    {
+     "id": "create-context-03",
+     "kind": "check",
+     "text": "The repository's own .gitignore makes Git ignore Context-Inbox."
+    },
+    {
+     "id": "create-context-04",
+     "kind": "semantic",
+     "text": "A Context document states the March 2027 ship date, the $35 price, and the decision to skip Kickstarter, as decided."
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "name": "log-entry",
+   "fixture": "log",
+   "prompt": "Just got off the phone with PortParts: the USB-C port is discontinued after March, and the last-time buy is 500 units at $0.31.\n\nWork only inside the current directory.",
+   "expected_output": "A dated PortParts entry in the Supplier Log with the discontinuation, the 500-unit last-time buy, and the price, the earlier entries kept, and the last-time buy recorded as an open choice.",
+   "assertions": [
+    {
+     "id": "log-entry-01",
+     "kind": "check",
+     "text": "The Supplier Log keeps both earlier entries and has a new entry naming PortParts, 500, and 0.31."
+    },
+    {
+     "id": "log-entry-02",
+     "kind": "semantic",
+     "text": "The new log entry is dated and states the discontinuation, and no document states that the 500 units were bought or ordered."
+    }
+   ]
+  },
+  {
+   "id": 13,
+   "name": "ineligible-project",
+   "fixture": "plain",
+   "prompt": "We're pricing it at $29. Put the price in the README.\n\nWork only inside the current directory.",
+   "expected_output": "README shows $29, and no Context directory is created, because nothing in this project calls for one.",
+   "assertions": [
+    {
+     "id": "ineligible-project-01",
+     "kind": "check",
+     "text": "README shows $29."
+    },
+    {
+     "id": "ineligible-project-02",
+     "kind": "check",
+     "text": "No Context directory and no Context-Inbox line were created."
+    }
+   ]
+  }
+ ]
+}

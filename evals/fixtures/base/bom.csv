@@ -1,0 +1,5 @@
+part,qty,supplier,unit_cost
+LED module,1,Lumen Co,1.20
+Battery 2000 mAh,1,CellWorks,2.10
+Enclosure (blue),1,TBD,
+USB-C port,1,PortParts,0.35

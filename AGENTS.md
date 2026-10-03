@@ -10,13 +10,17 @@ Rules for editing the **context-memory** skill. User-facing guidance lives in `S
 | `scripts/index.mjs` | Regenerates the compact active index, validates active frontmatter, warns on shape and density, and reports when a consolidation pass is due |
 | `README.md` | Short human summary that sells the idea |
 | `AGENTS.md` | This maintenance contract and the design notes behind the rules |
+| `evals/` | Behavioral test prompts with their assertions, the fixture project they run in, and the clean-room harness. Maintainer-only, never installed with the skill |
 
 ## Design notes
 
 Each rule in `SKILL.md` exists for one of these reasons. An edit that weakens a rule must answer its reason.
 
 - Context replaces harness memory because one fact kept in two stores drifts silently, and harness memory is keyed to a machine or a path and does not move with the repository.
-- Agents save stated views unasked because a user should not have to say "remember this". The description carries that trigger because it is the only part of the skill in context before the skill loads.
+- Agents save unasked because a user should not have to say "remember this". Capture covers plans, changes in state, and discoveries, not only stated views, because a session that recorded every opinion but not the plan still leaves the next session unable to continue. The description names any work in an eligible project, not only work that turns out to matter, so the skill is already loaded when a fact needs saving rather than after, and a turn with nothing durable simply writes nothing.
+- Capture keeps knowledge, not a log of actions, and keeps proposals, attempts, and inferences apart from what was agreed, finished, and confirmed, so broad loading does not fill Context with noise or turn a suggestion into a decision.
+- A changed fact is reconciled across the documents that depend on it in the same turn, because updating one owner while a plan or routine elsewhere still states the old fact leaves the handoff wrong until the next consolidation pass.
+- The handoff test gives the fresh agent only the repository, never the next step, because the next step is exactly what an unrecorded plan loses. It checks whether the knowledge can be found, not whether another agent would make identical choices.
 - Knowledge lives in Context and agent rules live in `AGENTS.md`, so instructions never scatter across topical documents.
 - One fact has one owner and other documents link to it, so an update happens in one place.
 - The index lists every active description because an agent cannot search for a document it does not know exists. The index is paid on every load, so the skill caps file count and description shape, not document length.
@@ -25,7 +29,9 @@ Each rule in `SKILL.md` exists for one of these reasons. An edit that weakens a 
 - Archive moves material without rewriting it and is never in the active index, at any depth, because archiving must be cheap for agents to archive often. Archive holds whole documents someone opens on purpose. Updating a current document in place is not deletion, because in a Git repository history keeps what it said before, so "delete almost nothing" is about knowledge, not about old wording.
 - Context-Inbox exists because people and helpers avoid moving or deleting files, and filing needs the one agent that knows which document owns each fact. The name says the workflow: things arrive, get filed, and the box empties.
 - Consolidation is triggered by the generator's cadence because the generator runs after every Context change and its warnings are already work. A pass that depends on someone remembering does not happen. A waiting Context-Inbox is reported as its own drain task rather than as a pass, so an inbox that fills every run does not demand a whole-directory audit every run.
-- Generator findings are warnings, not errors, apart from invalid frontmatter, a refused pass record, and a bad invocation. A hard failure gets bypassed, and a warning gets acted on.
+- A due consolidation pass starts in the turn that sees it, in a fresh background subagent when one is available, because agents that were allowed to defer a pass with a reason deferred it every time, and a working session full of its own task is the wrong context to audit a whole directory. Only the user defers one.
+- The generator adds `Context-Inbox/` to the repository's `.gitignore` itself, because agents asked to do it by hand kept missing it and the fix is mechanical, idempotent, and owned by this convention.
+- Generator findings are warnings, not errors, apart from invalid frontmatter, a refused pass record, and a bad invocation. A hard failure gets bypassed, so a warning names the action and when it starts instead of failing the run.
 - The generator has no dependencies, gives the same output every run, and knows only its current name. A rename is finished by hand in every repository rather than carried as compatibility in the script, because the script has one user and compatibility never leaves.
 
 ## Editing
@@ -41,6 +47,20 @@ Each rule in `SKILL.md` exists for one of these reasons. An edit that weakens a 
 - Preserve the managed block guards, the consolidation marker above them, and authored content outside them.
 - Prefer editorial warnings over new hard gates.
 - Keep the README to the idea and the durable behavior: why a Context directory, what the pieces are, how to run the generator. It never restates rules, thresholds, or flags that only `SKILL.md` and the script own, so it cannot drift from them.
+
+## Behavioral testing
+
+A change to what the skill asks an agent to do, or to what the generator does, is proven before it is committed. Hold the whole change to the monolith-audit skill.
+
+1. Run `node evals/harness/generator.test.mjs` after any change to the generator, and add a case for every branch the change adds.
+2. Find the evals in `evals/evals.json` whose prompt exercises the change, and make sure an assertion decides it. A structural fact (a file, a CSV row, a marker, an ignore rule) is a `check` with a function in `evals/harness/grade.py`. A question of meaning (whether a decision is recorded as decided, whether a stale line remains) is `semantic` and graded by the critics. When no eval exercises the change, add one: a request a real person would type in the fixture project, never mentioning memory, Context, or the rule, with a fixture overlay in `evals/fixtures` when the base project cannot show it. Keep a restraint eval beside every kind of capture, so a broader rule is measured against noise as well as against misses.
+3. Snapshot the skill as last committed and as changed, and run every eval with both snapshots and both models, following `evals/harness/README.md`. The suite is small enough to run whole on every change, which also catches a change that helps one rule and hurts another.
+4. Grade with `grade.py`, have the critics grade the semantic assertions blind as `evals/harness/CRITIC.md` describes, answer every blocking finding in writing, and resume each critic until it withdraws or holds each one.
+5. Pass when `compare.py` exits 0: every session finished, every new session passes every assertion, no assertion that every last-committed session passed fails in a new session, and every blocking finding against a new session is withdrawn.
+6. When it fails, make the rule something an agent can check against its own work, such as a test it runs, a file it writes, or a line the generator prints, and run again. After four rounds, report what still fails instead of committing it.
+7. Leave the change uncommitted for the owner's review, with a proposed commit message naming the evals run and the pass counts per snapshot. Delete the run folder, which holds copied credentials.
+
+A single prompt cannot reproduce a long session that drifts across many tasks, so these evals measure whether the rules fire and what they write, not every way a long session forgets. Sections with no eval yet: precedence over a harness's own memory, Reading Discipline, Markup, Directory Density, splitting a document, log rollover into Archive, and nested Context directories.
 
 ## Before finishing
 
