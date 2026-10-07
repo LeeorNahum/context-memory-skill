@@ -16,7 +16,7 @@ Agents forget between sessions, and the memory a harness offers is keyed to one 
 ## Files
 
 - `SKILL.md` contains the Context directory contract.
-- `scripts/index.mjs` regenerates the active index, validates active frontmatter, warns when a directory or a description has outgrown its shape or a Context-Inbox is waiting, says when a consolidation pass is due, and keeps `Context-Inbox/` out of Git.
+- `scripts/index.mjs` regenerates the active index, validates active frontmatter, warns when a directory or a description has outgrown its shape, a link does not resolve, or a Context-Inbox is waiting, says when a consolidation pass is due, and keeps `Context-Inbox/` out of Git.
 - `package.json` exposes the generator as a `bin`, so it runs from the repository without being installed.
 - `AGENTS.md` is the maintenance contract for editing this skill, with the design notes behind each rule.
 

@@ -13,7 +13,7 @@ eval under EVAL_ROOT/judge/<round>-<eval>/: prompt.txt, semantic.json (the seman
 and per letter answer.txt, diff.txt, and project/ (the whole resulting project without .git or the
 installed skill), with key.json beside them. An existing package folder is never overwritten.
 """
-import csv, io, json, os, pathlib, random, re, shutil, subprocess, sys
+import csv, html, io, json, os, pathlib, random, re, shutil, subprocess, sys, urllib.parse
 from datetime import datetime, timezone
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -87,6 +87,37 @@ def stale_bolt_date(docs):
     return any('2026-10-12' in line and 'Bolt' in line and not past.search(line) for t in docs.values() for line in t.splitlines())
 
 
+def links(work, rel):
+    """Each relative inline Markdown link in a file as (target, the path it resolves to), with code and comments left out."""
+    kept, fenced = [], False
+    for line in read(work, rel).splitlines():
+        if re.match(r'[\s>]*(```|~~~)', line):
+            fenced = not fenced
+        elif not fenced:
+            kept.append(line)
+    text = re.sub(r'<!--.*?-->|`[^`\n]*`', '', '\n'.join(kept), flags=re.S)
+    found = []
+    # A destination in angle brackets or with nested parentheses, then an optional title, across at most a line break each.
+    for m in re.finditer(r'\]\(\s*(?:<([^<>\n]*)>|((?:[^()\s]|\((?:[^()\s]|\((?:[^()\s]|\([^()\s]*\))*\))*\))+))(?:\s+(?:"[^"]*"|\'[^\']*\'))?\s*\)', text):
+        raw = m.group(1) if m.group(1) is not None else m.group(2)
+        target = html.unescape(re.sub(r'\\([!-/:-@\[-`{-~])', r'\1', raw)).split('#')[0].strip()
+        if target and not re.match(r'[A-Za-z][A-Za-z0-9+.-]*:|/', target):
+            paths = [(work / rel).parent / t for t in (target, urllib.parse.unquote(target))]
+            found.append((target, next((p for p in paths if p.exists()), paths[0])))
+    return found
+
+
+def dangling(work):
+    """Relative Markdown links anywhere in the project whose target does not exist, as 'file -> target'."""
+    files = [str(p.relative_to(work)).replace('\\', '/') for p in work.rglob('*.md')]
+    return [f'{f} -> {t}' for f in files if not f.startswith(SKIP) for t, p in links(work, f) if not p.exists()]
+
+
+def links_to_archived_steps(work):
+    return any(p.is_file() and 'Archive' in p.resolve().relative_to(work.resolve()).parts and 'Solder the LED module' in p.read_text(encoding='utf-8', errors='replace')
+               for _, p in links(work, 'docs/Assembly Notes.md') if p.exists() and work.resolve() in p.resolve().parents)
+
+
 def skill_read(base):
     """A hint, not proof: whether the session record shows the skill's SKILL.md being opened."""
     return bool(re.search(r'context-memory[\\/]+SKILL\.md|Skill.{0,80}context-memory', read(base, 'session.jsonl')))
@@ -135,6 +166,8 @@ def checks(work, base, ch, session_dates):
         'create-context-02': lambda: bool(docs) and 'BEGIN context-memory index' in index and 'END context-memory index' in index and all(pathlib.PurePosixPath(d).name in index and has_frontmatter(t) for d, t in docs.items()),
         'create-context-03': lambda: own_ignore(work),
         'log-entry-01': lambda: (lambda log: '**2026-09-18, CellWorks:** confirmed the 2000 mAh battery at $2.10 for 100 units.' in log and '**2026-09-05, Lumen Co:** sent LED module samples. Price $1.20 each.' in log and bool(re.search(r'PortParts.{0,300}500|500.{0,300}PortParts', log, re.S)) and '0.31' in log)(read(work, 'Context/Supplier Log.md')),
+        'archive-linked-doc-01': lambda: 'Context/Prototype Build Steps.md' not in docs and all(step in archived_text(work) for step in ('Solder the LED module to the driver board', 'Wire the battery through the charge controller', 'Fit everything in a 3D-printed test shell')),
+        'archive-linked-doc-02': lambda: links_to_archived_steps(work) and not dangling(work),
         'ineligible-project-01': lambda: '$29' in read(work, 'README.md') and 'Trailhead Lamp' in read(work, 'README.md'),
         'ineligible-project-02': lambda: not (work / 'Context').exists() and 'Context-Inbox' not in read(work, '.gitignore'),
     }

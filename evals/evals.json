@@ -287,6 +287,30 @@
      "text": "No Context directory and no Context-Inbox line were created."
     }
    ]
+  },
+  {
+   "id": 14,
+   "name": "archive-linked-doc",
+   "fixture": "relink",
+   "prompt": "The prototype is built, and the production line will get its own instructions, so nobody follows the prototype build steps anymore. Get them out of the way, but keep them in case we ever want to look back.\n\nWork only inside the current directory.",
+   "expected_output": "The build steps leave the active documents and stay whole in Archive, and the assembly notes in docs, which link to them from outside Context, point at where they are now.",
+   "assertions": [
+    {
+     "id": "archive-linked-doc-01",
+     "kind": "check",
+     "text": "The build steps are no longer an active document, and all three steps are kept in Archive."
+    },
+    {
+     "id": "archive-linked-doc-02",
+     "kind": "check",
+     "text": "docs/Assembly Notes.md links to the archived build steps, and no relative Markdown link in the project is left pointing at a file that does not exist."
+    },
+    {
+     "id": "archive-linked-doc-03",
+     "kind": "semantic",
+     "text": "No document still presents the prototype build steps as current instructions or says they sit at their old place."
+    }
+   ]
   }
  ]
 }
