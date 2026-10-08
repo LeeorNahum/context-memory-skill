@@ -7,10 +7,10 @@ Status owns the current state and next steps. Decisions owns choices and their r
 
 # Context Index
 
-Follow any durable project instructions outside this generated block, use each description below as the trigger for what to read, and regenerate the index after any change.
+Each line is a document under `Context/`, by its path from that folder, and when to read it. To find something, this index and the documents it names are enough. When the work decides, learns, plans, or changes something the project should remember, load the context-memory skill and record it.
 
-- [Decisions](<Decisions.md>) → What was chosen for the lamp and why, for parts, colors, suppliers, and pricing. Read before changing the design or the bill of materials.
-- [Status](<Status.md>) → Where the lamp project stands, what is waiting and on whom, and what happens next. Read first in every session.
-- [Supplier Log](<Supplier Log.md>) → Dated record of every call and email with suppliers, newest first. Read before contacting a supplier or when a supplier's terms are in question.
+- Decisions.md → What was chosen for the lamp and why, for parts, colors, suppliers, and pricing. Read before changing the design or the bill of materials.
+- Status.md → Where the lamp project stands, what is waiting and on whom, and what happens next. Read first in every session.
+- Supplier Log.md → Dated record of every call and email with suppliers, newest first. Read before contacting a supplier or when a supplier's terms are in question.
 
 <!-- END context-memory index -->

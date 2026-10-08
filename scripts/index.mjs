@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerate the compact active index in a Context directory's AGENTS.md,
-// validate active markup frontmatter, check Markdown links, say when a consolidation
-// pass is due, and keep Context-Inbox out of Git.
+// validate active markup frontmatter, check Markdown links, say when a consolidation pass is
+// due, check that an instruction file imports the index, and keep Context-Inbox out of Git.
 //
 // Usage: node scripts/index.mjs <path-to-Context> [--nested] [--links=<folder>] [--check] [--consolidated[=YYYY-MM-DD]] [--cadence=<days>] [--force]
 //
@@ -29,17 +29,23 @@ const TEMP = "Context-Inbox";
 const PLACEHOLDERS = new Set([".gitkeep", ".gitignore", ".DS_Store", "Thumbs.db"]);
 const REQUIRED = ["name", "description", "date_created", "date_modified"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const INDEX_WARNING_BYTES = 24 * 1024;
+// The index is imported at every session start, so its cost is reported in tokens. Index
+// text runs near 2.7 bytes a token, because paths and punctuation are denser than prose.
+const BYTES_PER_TOKEN = 2.7;
+const INDEX_WARNING_TOKENS = 5000;
 const INDEX_ENTRIES_REVIEW = 200;
 const COMBINED_WARNING_BYTES = 32 * 1024;
+// The file every harness shares, then the one a harness with imports of its own reads first.
+const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"];
 // Prompts to look, not limits to enforce, so they warn and never fail the run.
 const ROOT_FILES_REVIEW = 8;
 const DIR_FILES_REVIEW = 12;
 const DIR_FILES_SUBTOPIC = 20;
-const DESCRIPTION_REVIEW_CHARS = 300;
+const DESCRIPTION_REVIEW_CHARS = 200;
 const DESCRIPTION_MAX_CHARS = 1024;
-// A consolidation pass is due on this calendar cadence even when nothing else fired,
-// because drift between documents is the one thing this script cannot see.
+// A consolidation pass falls due on this calendar cadence once the directory has changed
+// since the last one, because drift between documents is the one thing this script cannot
+// see. A directory with no recorded pass counts from its oldest document.
 const DEFAULT_CADENCE_DAYS = 7;
 // How many directory levels below the Context's parent --nested looks for other
 // Context directories that already carry an index.
@@ -54,13 +60,14 @@ const KNOWN_FLAGS = ["--help", "--force", "--nested", "--consolidated", "--check
 if (process.argv.includes("--help")) {
   console.log(
     "Usage: node scripts/index.mjs <path-to-Context> [--nested] [--links=<folder>] [--check] [--consolidated[=YYYY-MM-DD]] [--cadence=<days>] [--force]\n" +
-      "Regenerates the compact active index in <path>/AGENTS.md, validates active frontmatter, warns about Context-Inbox, directory density, description shape, and Markdown links that do not resolve, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's .gitignore when it is missing. Every Archive folder is left out of the active index. Exits 1 on active errors.\n" +
+      "Regenerates the compact active index in <path>/AGENTS.md and reports its size in tokens, validates active frontmatter, warns about Context-Inbox, directory density, description shape, Markdown links that do not resolve, and an index no instruction file imports, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's .gitignore when it is missing. Every Archive folder is left out of the active index. Exits 1 when a document has invalid frontmatter or a pass record is refused.\n" +
       "Links: every inline Markdown link with a relative target is checked in every Markdown file under Context, Archive included. In the other Markdown files of the folder that holds Context, hidden folders included, only links that point into this Context or its Context-Inbox are checked. Letter case must match. Web addresses, absolute paths, same-file anchors, code, HTML blocks and comments, and reference-style links are not checked, and the part after # is ignored. A character written as a named reference other than amp, lt, gt, quot, or apos is not decoded, so write the character itself or percent-encode it.\n" +
-      "  --nested            Also process every indexed Context directory in project folders up to two levels below this one's parent, each on its own.\n" +
+      "Import: an @path line that resolves to this index is looked for in AGENTS.md and CLAUDE.md, from the folder that holds Context up to the repository root, outside comments and code.\n" +
+      "  --nested            Also process every indexed Context directory in project folders up to two levels below this one's parent, each on its own, and name the ones with a pass due.\n" +
       "  --links=<folder>    Also look in this folder, such as a sibling repository or the rest of a project whose Context sits in a subfolder, for links into this Context, remembered for this Context. Repeat it to name several. --links=none forgets them.\n" +
       "  --check             Report only and write nothing: no index, no Archive index, no .gitignore line, nothing remembered. With it, --links applies to this run only, and --consolidated and --cadence are refused.\n" +
       "  --consolidated      Record that a consolidation pass finished today, or on the given date, for this Context only. Refused while this Context has errors, a Context-Inbox with files, or a Markdown link that does not resolve.\n" +
-      "  --cadence=<days>    Days between consolidation passes before one is due, remembered for this Context. Default 7. 0 turns the calendar check off.\n" +
+      "  --cadence=<days>    Days after a pass before the next can fall due, remembered for this Context. Default 7. 0 turns the calendar check off. A pass falls due only once something changed after the last one.\n" +
       "  --force             Allow a directory not named Context.",
   );
   process.exit(0);
@@ -80,6 +87,7 @@ const nested = flags.includes("--nested");
 const cadenceFlag = flags.find((a) => a.startsWith("--cadence="));
 const cadenceArg = cadenceFlag ? Number(cadenceFlag.slice("--cadence=".length)) : null;
 const consolidatedFlag = flags.find((a) => a.startsWith("--consolidated"));
+
 const checkOnly = flags.includes("--check");
 const linksArg = flags.filter((a) => a.startsWith("--links=")).map((a) => a.slice("--links=".length));
 if (checkOnly && (consolidatedFlag || cadenceFlag)) {
@@ -457,9 +465,8 @@ function writeArchiveIndex(archiveDir, contextRoot) {
       if (!MARKUP.has(ext)) continue;
       const rel = relative(archiveDir, full).replaceAll("\\", "/");
       const parsed = parseFrontmatter(readFileSync(full, "utf8"), ext);
-      const name = parsed?.fields.name || basename(entry, ext);
       const description = parsed?.fields.description || "No frontmatter. Open it to see what it holds.";
-      entries.push(`- [${name}](<${rel}>) → ${description}`);
+      entries.push(`- ${rel} → ${description}`);
     }
   })(archiveDir);
 
@@ -486,15 +493,95 @@ function writeArchiveIndex(archiveDir, contextRoot) {
   writeFileSync(agentsPath, content);
 }
 
-// Regenerates one Context directory. Returns true when it had active errors.
+// Whether Git shows active Context material changed after the commit that recorded the last
+// pass, in a later commit or in tracked files of the working tree. Catches a document edited
+// without its date_modified being moved, and an edit made later on the day of the pass. It
+// answers no outside a Git repository, for files Git does not track, and while no commit
+// holds the record of the pass yet, and then the frontmatter dates decide alone.
+function changedInGitSince(contextRoot, lastPass) {
+  const git = (args) => {
+    try {
+      return execFileSync("git", args, { cwd: contextRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {
+      return "";
+    }
+  };
+  const recordedAs = `last consolidation pass ${lastPass},`;
+  const recorded = git(["log", "-1", "--format=%H", `-S${recordedAs}`, "--", "AGENTS.md"]);
+  if (!recorded) return false;
+  const active = [".", `:(exclude,glob)**/${ARCHIVE}/**`, ":(exclude,glob)**/AGENTS.md"];
+  return Boolean(git(["log", "-1", "--format=%H", `${recorded}..HEAD`, "--", ...active]) || git(["status", "--porcelain", "--untracked-files=no", "--", ...active]));
+}
+
+const samePath = (a, b) => (process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b);
+
+// The files one instruction file imports with @path, as a harness that follows imports reads
+// them: relative to the importing file, outside comments, code spans, and fences, a space in
+// a path escaped with a backslash.
+function importsOf(path) {
+  const found = [];
+  let fenced = false;
+  for (const raw of readFileSync(path, "utf8").replace(/<!--[\s\S]*?-->/g, "").split(/\r?\n/)) {
+    if (/^\s*(```|~~~)/.test(raw)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    for (const match of raw.replace(/`[^`]*`/g, "").matchAll(/(?:^|\s)@((?:\\ |[^\s`])+)/g)) {
+      found.push(resolve(dirname(path), match[1].replaceAll("\\ ", " ")));
+    }
+  }
+  return found;
+}
+
+// Checks that the index reaches a session: some instruction file between the Context and the
+// repository root imports it, and a CLAUDE.md beside an AGENTS.md that carries the import
+// imports that AGENTS.md, since a harness that finds its own file does not read the other.
+// Returns the folder whose instruction file carries the import or should, and a warning, which
+// is null when the index loads or no instruction file could carry it.
+function indexHome(contextRoot) {
+  const index = join(contextRoot, "AGENTS.md");
+  const dirs = [];
+  let inRepository = false;
+  for (let dir = resolve(contextRoot, ".."); ; dir = dirname(dir)) {
+    dirs.push(dir);
+    if (existsSync(join(dir, ".git"))) {
+      inRepository = true;
+      break;
+    }
+    if (dirname(dir) === dir) break;
+  }
+  if (!inRepository) dirs.length = 1;
+  const filesIn = (dir) => INSTRUCTION_FILES.map((name) => join(dir, name)).filter((path) => existsSync(path));
+  for (const dir of dirs) {
+    const importers = filesIn(dir).filter((path) => importsOf(path).some((target) => samePath(target, index)));
+    if (!importers.length) continue;
+    const [agents, claude] = INSTRUCTION_FILES.map((name) => join(dir, name));
+    if (importers.some((path) => samePath(path, claude)) || !existsSync(claude)) return { home: dir, warning: null };
+    if (importsOf(claude).some((target) => samePath(target, agents))) return { home: dir, warning: null };
+    return { home: dir, warning: `${claude} does not import ${INSTRUCTION_FILES[0]}, so a harness that reads only ${INSTRUCTION_FILES[1]} never reaches the import of this index in ${agents}. Add a line reading @${INSTRUCTION_FILES[0]} to ${claude}.` };
+  }
+  const home = dirs.find((dir) => filesIn(dir).length) ?? (inRepository ? dirs[dirs.length - 1] : null);
+  if (!home) return { home: dirs[0], warning: null };
+  const target = filesIn(home)[0] ?? join(home, INSTRUCTION_FILES[0]);
+  const fromHome = relative(home, index).replaceAll("\\", "/");
+  return { home, warning: `No instruction file imports this index, so a session starts without it. Add a line reading @${fromHome.replaceAll(" ", "\\ ")} to ${target}, on a line of its own outside any code block, below a sentence telling a harness that does not follow imports to read ${fromHome} before working.` };
+}
+
+// Regenerates one Context directory. Returns whether it had active errors and whether a
+// consolidation pass is due.
 function processContext(contextRoot, { label, recordPass }) {
   const docs = [];
   const assets = [];
   const archives = [];
   let archivedFiles = 0;
+  let bareHtml = 0;
   const broken = [];
   const errors = [];
+  // Tasks for this turn print before the editorial findings a consolidation pass takes on.
+  const urgent = [];
   const warnings = [];
+  const longDescriptions = [];
 
   function walk(dir) {
     for (const entry of readdirSync(dir).sort()) {
@@ -520,6 +607,15 @@ function processContext(contextRoot, { label, recordPass }) {
       }
 
       const parsed = parseFrontmatter(readFileSync(full, "utf8"), ext);
+      // An HTML file with no frontmatter comment is a saved page or an export, kept as it
+      // arrived beside the document that owns it, so it is an asset and not an error. One that
+      // opens with a delimited block of the fields, but not as a readable comment, is a document
+      // with a broken block.
+      if (!parsed && ext === ".html" && !/^---\r?\n(?:.*\r?\n)*?name:[\s\S]*?^description:/m.test(readFileSync(full, "utf8").slice(0, 2048))) {
+        assets.push(rel);
+        bareHtml += 1;
+        continue;
+      }
       if (!parsed) {
         broken.push(rel);
         errors.push(`${rel}: missing frontmatter block`);
@@ -550,8 +646,12 @@ function processContext(contextRoot, { label, recordPass }) {
 
       const stem = basename(entry, ext);
       if (DATE.test(stem)) warnings.push(`${rel}: the filename is only a date. Name it for its subject after the date.`);
-      if (fields.description.length > DESCRIPTION_REVIEW_CHARS) {
-        warnings.push(`${rel}: description is ${fields.description.length} characters. A description names the contents and the trigger, it does not summarize the findings.`);
+      if (new RegExp(`\\b${ARCHIVE}$`, "i").test(stem)) {
+        warnings.push(`${rel}: named as an archive but active, so it is indexed and read as current. Move it under an ${ARCHIVE} folder, or rename it for what it owns now.`);
+      }
+      if (fields.description.length > DESCRIPTION_REVIEW_CHARS) longDescriptions.push({ rel, length: fields.description.length });
+      if (/(^|\s)@[\w.~/-]/.test(fields.description) || /(^|\/)@/.test(rel)) {
+        warnings.push(`${rel}: its path or description holds a word that starts with @, which a harness that follows imports reads as a file to load. Rename or reword it.`);
       }
       if (fields.description.toLowerCase().startsWith(fields.name.toLowerCase())) {
         warnings.push(`${rel}: description starts by repeating the name. Say what the file holds and when it is useful.`);
@@ -626,6 +726,7 @@ function processContext(contextRoot, { label, recordPass }) {
 
   const markerMatch = content.match(MARKER);
   let lastPass = markerMatch ? markerMatch[1] : "none";
+  let recorded = false;
   let cadenceDays = markerMatch ? Number(markerMatch[2]) : DEFAULT_CADENCE_DAYS;
   if (recordPass && cadenceArg !== null) cadenceDays = cadenceArg;
   if (recordPass && consolidatedOn) {
@@ -637,8 +738,11 @@ function processContext(contextRoot, { label, recordPass }) {
       errors.push(`--consolidated refused: ${unresolvedLinks} Markdown link(s) do not resolve. Fix them, then record the pass`);
     } else {
       lastPass = consolidatedOn;
+      recorded = true;
     }
   }
+  const { home, warning: notImported } = indexHome(contextRoot);
+  const fromHome = `${relative(home, contextRoot).replaceAll("\\", "/")}/`;
   const marker = `<!-- ${SKILL_NAME}: last consolidation pass ${lastPass}, cadence ${cadenceDays} days -->`;
 
   const lines = [
@@ -646,12 +750,12 @@ function processContext(contextRoot, { label, recordPass }) {
     "",
     "# Context Index",
     "",
-    "Follow any durable project instructions outside this generated block, use each description below as the trigger for what to read, and regenerate the index after any change.",
+    `Each line is a document under \`${fromHome}\`, by its path from that folder, and when to read it. To find something, this index and the documents it names are enough. When the work decides, learns, plans, or changes something the project should remember, load the ${SKILL_NAME} skill and record it.`,
     "",
   ];
 
   for (const doc of docs) {
-    lines.push(`- [${doc.name}](<${doc.rel}>) → ${doc.description}`);
+    lines.push(`- ${doc.rel} → ${doc.description}`);
   }
 
   if (broken.length) {
@@ -672,8 +776,13 @@ function processContext(contextRoot, { label, recordPass }) {
   else if (content !== onDisk) warnings.push(`The index in ${agentsPath} is missing or out of date. A run without --check writes it.`);
 
   const indexBytes = Buffer.byteLength(content, "utf8");
-  if (indexBytes > INDEX_WARNING_BYTES) {
-    warnings.push(`${agentsPath} is ${indexBytes} bytes. Review active index scope and Context organization.`);
+  const indexTokens = Math.round(indexBytes / BYTES_PER_TOKEN / 10) * 10;
+  if (indexTokens > INDEX_WARNING_TOKENS) {
+    warnings.push(`The index is about ${indexTokens} tokens, loaded at every session start, past ${INDEX_WARNING_TOKENS}. Archive what is no longer current, merge documents that share an owner, and shorten descriptions.`);
+  }
+  if (longDescriptions.length) {
+    const longest = [...longDescriptions].sort((a, b) => b.length - a.length || a.rel.localeCompare(b.rel));
+    warnings.push(`${longDescriptions.length} description(s) run past ${DESCRIPTION_REVIEW_CHARS} characters. A description names what the file holds and when to read it, it does not summarize the findings. Shorten each one, longest first: ${longest.map((d) => `${d.rel} (${d.length})`).join(", ")}`);
   }
   if (docs.length > INDEX_ENTRIES_REVIEW) {
     warnings.push(`The index lists ${docs.length} documents. Past ${INDEX_ENTRIES_REVIEW} it is too long to load on every task, so archive or split the directory.`);
@@ -699,25 +808,35 @@ function processContext(contextRoot, { label, recordPass }) {
   if (existsSync(parentAgentsPath)) {
     const combinedBytes = indexBytes + Buffer.byteLength(readFileSync(parentAgentsPath, "utf8"), "utf8");
     if (combinedBytes > COMBINED_WARNING_BYTES) {
-      warnings.push(`root and Context AGENTS.md total ${combinedBytes} bytes of project instructions, past ${COMBINED_WARNING_BYTES}. Move rules that are not agent-wide into topical documents, or archive.`);
+      warnings.push(`root and Context AGENTS.md total ${combinedBytes} bytes of project instructions, past ${COMBINED_WARNING_BYTES}. Move project knowledge out of the instruction file into the Context document that owns it, and shorten the index.`);
     }
   }
 
   if (tempFiles && tempFiles.length) {
     const shown = tempFiles.slice(0, 5).join(", ") + (tempFiles.length > 5 ? ", ..." : "");
-    warnings.push(`${TEMP} holds ${tempFiles.length} file(s) waiting to be drained into Context: ${shown}`);
+    const drain = checkOnly ? "Tell the session that owns this Context to drain it." : "Drain it in this turn: file what each item holds into the document that owns it, then remove the folder.";
+    urgent.push(`${tempPath} holds ${tempFiles.length} file(s): ${shown}. ${drain}`);
   } else if (tempFiles) {
     warnings.push(`${TEMP} is empty. Remove it.`);
   }
 
-  const start = checkOnly ? "Tell the session that owns this Context." : `Start it in this turn, in a fresh background subagent when one is available, given this Context and the ${SKILL_NAME} skill's Consolidation section. It ends by running the generator on ${contextRoot} with --consolidated. Only the user can defer it.`;
-  if (cadenceDays > 0) {
+  if (notImported) urgent.push(notImported);
+
+  const start = checkOnly ? "Tell the session that owns this Context." : `Start it in this turn, in a fresh background subagent when one is available, given this Context, the ${SKILL_NAME} skill, its upkeep reference, and the other warnings printed here. It ends by running the generator on ${contextRoot} with --consolidated, as a command of its own. Only the user can defer it. The agent already running this pass continues it.`;
+  let due = false;
+  if (cadenceDays > 0 && docs.length) {
     if (lastPass === "none") {
-      warnings.push(`A consolidation pass is due: none is recorded. ${start}`);
+      const age = daysBetween(docs.map((doc) => doc.date_created).sort()[0], today);
+      if (age >= cadenceDays) {
+        due = true;
+        urgent.unshift(`A consolidation pass is due: none is recorded and the oldest document here is ${age} day(s) old, past the ${cadenceDays}-day cadence. ${start}`);
+      }
     } else {
       const age = daysBetween(lastPass, today);
-      if (age >= cadenceDays) {
-        warnings.push(`A consolidation pass is due: the last one was ${age} day(s) ago, past the ${cadenceDays}-day cadence. ${start}`);
+      const changed = docs.some((doc) => doc.date_modified > lastPass || doc.date_created > lastPass) || changedInGitSince(contextRoot, lastPass);
+      if (age >= cadenceDays && changed) {
+        due = true;
+        urgent.unshift(`A consolidation pass is due: the last one was ${age} day(s) ago, past the ${cadenceDays}-day cadence, and documents changed after it. ${start}`);
       }
     }
   }
@@ -727,13 +846,15 @@ function processContext(contextRoot, { label, recordPass }) {
     else warnings.push(note.warn);
   }
 
-  const archiveNote = archives.length ? `${archivedFiles} archived file(s) in ${archives.length} Archive folder(s)` : "no Archive folders";
-  console.log(
-    `${label}${checkOnly ? "Wrote nothing (--check). Found" : "Indexed"} ${docs.length} active doc(s), omitted ${assets.length} active asset(s), left ${archiveNote} out of the index, ${broken.length} unindexed in ${agentsPath}`,
-  );
-  for (const warning of warnings) console.warn(`${label}WARNING: ${warning}`);
+  const extras = [];
+  if (assets.length) extras.push(`left out ${assets.length} asset(s)${bareHtml ? `, ${bareHtml} of them HTML with no frontmatter comment` : ""}`);
+  if (archives.length) extras.push(`left ${archivedFiles} archived file(s) in ${archives.length} Archive folder(s) out of the index`);
+  if (broken.length) extras.push(`could not index ${broken.length} document(s)`);
+  console.log(`${label}${checkOnly ? "Wrote nothing (--check), so what follows goes to the session that owns this Context. Read" : "Wrote"} ${agentsPath}: ${docs.length} active document(s) in about ${indexTokens} tokens${extras.map((extra) => `, ${extra}`).join("")}`);
+  if (recorded) console.log(`${label}Recorded a consolidation pass on ${lastPass} for ${contextRoot}, cadence ${cadenceDays} days`);
+  for (const warning of [...urgent, ...warnings]) console.warn(`${label}WARNING: ${warning}`);
   for (const error of errors) console.error(`${label}ERROR: ${error}`);
-  return errors.length > 0;
+  return { failed: errors.length > 0, due };
 }
 
 // Every repository that holds a Context directory carries its own rule keeping Context-Inbox out
@@ -749,7 +870,7 @@ function ignoreInbox(tempPath) {
     repo = up;
   }
   const gitignore = join(repo, ".gitignore");
-  const listed = new RegExp(`^/?${TEMP}/?\s*$`, "m");
+  const listed = new RegExp(`^/?${TEMP}/?\\s*$`, "m");
   const git = (args) => {
     try {
       return { code: 0, out: execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
@@ -789,16 +910,23 @@ function ignoreInbox(tempPath) {
   return notes;
 }
 
-let failed = processContext(root, { label: "", recordPass: true });
+const first = processContext(root, { label: "", recordPass: true });
+let failed = first.failed;
 
 if (nested) {
   const parent = dirname(root);
   const found = [];
   const skippedNoIndex = [];
   findNestedContexts(parent, NESTED_DEPTH + 1, found, skippedNoIndex);
+  const dueNested = [];
   for (const contextRoot of found) {
     const label = `[${relative(parent, dirname(contextRoot)).replaceAll("\\", "/")}] `;
-    if (processContext(contextRoot, { label, recordPass: false })) failed = true;
+    const result = processContext(contextRoot, { label, recordPass: false });
+    if (result.failed) failed = true;
+    if (result.due) dueNested.push(contextRoot);
+  }
+  if (dueNested.length) {
+    console.warn(`WARNING: ${dueNested.length} nested Context director${dueNested.length === 1 ? "y has" : "ies have"} a consolidation pass due, each a pass of its own, recorded by running the generator on that directory with --consolidated: ${dueNested.join(", ")}`);
   }
   for (const contextRoot of skippedNoIndex) {
     console.log(`Skipped ${relative(parent, contextRoot).replaceAll("\\", "/")}: no index in its AGENTS.md. Run the generator there directly to start one.`);

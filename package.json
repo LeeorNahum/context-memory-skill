@@ -1,7 +1,7 @@
 {
   "name": "context-memory",
-  "version": "3.3.0",
-  "description": "Regenerates the active index in a Context directory's AGENTS.md, validates its frontmatter, checks its Markdown links, and says when a consolidation pass is due.",
+  "version": "4.0.0",
+  "description": "Regenerates the active index in a Context directory's AGENTS.md, validates its frontmatter, checks its Markdown links, says when a consolidation pass is due, and checks that the index is imported.",
   "type": "module",
   "bin": {
     "context-memory": "scripts/index.mjs"

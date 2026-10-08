@@ -2,11 +2,7 @@
 
 A rechargeable camping lamp, from prototype to a first run of 100 units.
 
-## Context
-
-`Context/` is this project's memory. Its index loads through the import below. If no Context Index is in your context, read `Context/AGENTS.md` before working here.
-
-@Context/AGENTS.md
+Read [Context/AGENTS.md](Context/AGENTS.md) before working here. It indexes the plan, decisions, and status.
 
 ## Layout
 

@@ -226,7 +226,7 @@
    "name": "create-context",
    "fixture": "bare",
    "prompt": "We've settled the launch: the lamp ships in March 2027 at $35, and we're skipping Kickstarter. Put the price in the README.\n\nWork only inside the current directory.",
-   "expected_output": "README shows $35, and a Context directory now exists with a valid index and a document holding the ship date, price, and the no-Kickstarter decision.",
+   "expected_output": "README shows $35, and a Context directory now exists with a valid index, a document holding the ship date, price, and the no-Kickstarter decision, an import of the index in the root AGENTS.md, and no consolidation pass recorded.",
    "assertions": [
     {
      "id": "create-context-01",
@@ -247,6 +247,11 @@
      "id": "create-context-04",
      "kind": "semantic",
      "text": "A Context document states the March 2027 ship date, the $35 price, and the decision to skip Kickstarter, as decided."
+    },
+    {
+     "id": "create-context-05",
+     "kind": "check",
+     "text": "The root AGENTS.md imports the index with an @Context/AGENTS.md line, and the new directory's consolidation marker records no pass."
     }
    ]
   },
@@ -290,6 +295,179 @@
   },
   {
    "id": 14,
+   "name": "correction-final",
+   "fixture": "base",
+   "prompt": "Correction: the battery is 2200 mAh, not 2000. I gave you the wrong number when we set this up. Fix the BOM.\n\nWork only inside the current directory.",
+   "expected_output": "The BOM and Decisions say 2200 mAh as if they always had, nothing in Context keeps 2000 or tells the story of the correction, and the runtime that depended on the old capacity is marked unconfirmed, not recomputed.",
+   "assertions": [
+    {
+     "id": "correction-final-01",
+     "kind": "check",
+     "text": "The BOM battery row says 2200 mAh and no row says 2000."
+    },
+    {
+     "id": "correction-final-02",
+     "kind": "check",
+     "text": "No active Context document still contains 2000."
+    },
+    {
+     "id": "correction-final-03",
+     "kind": "semantic",
+     "text": "Decisions states 2200 mAh as the battery, and no Context document records the correction as an event, such as a note that the figure was wrong, was corrected, or used to be something else."
+    },
+    {
+     "id": "correction-final-04",
+     "kind": "semantic",
+     "text": "No document states a runtime for the 2200 mAh battery as fact. The runtime is marked unconfirmed, or the statement is gone, because the user gave no new figure."
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "name": "tentative-idea",
+   "fixture": "base",
+   "prompt": "Fix the typos in README.md. Also, I've been wondering if we should do a walnut base instead of all plastic. Not sure yet, I want to see the enclosure quotes first.\n\nWork only inside the current directory.",
+   "expected_output": "A corrected README, an unchanged BOM, and the walnut base recorded, if at all, as an open idea waiting on the quotes.",
+   "assertions": [
+    {
+     "id": "tentative-idea-01",
+     "kind": "check",
+     "text": "README exists and no longer contains the misspellings."
+    },
+    {
+     "id": "tentative-idea-02",
+     "kind": "check",
+     "text": "The BOM is unchanged."
+    },
+    {
+     "id": "tentative-idea-03",
+     "kind": "semantic",
+     "text": "No Context document and no instruction file states a walnut base as decided, chosen, or planned. If the idea is recorded, it reads as the user's open question that waits on the enclosure quotes."
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "name": "working-rule",
+   "fixture": "base",
+   "prompt": "From now on, show me the before and after of any BOM row before you change it, and wait for my OK. Nothing to change right now.\n\nWork only inside the current directory.",
+   "expected_output": "The rule is in the root AGENTS.md, where every session loads it, and not in a Context document.",
+   "assertions": [
+    {
+     "id": "working-rule-01",
+     "kind": "check",
+     "text": "The root AGENTS.md changed and now holds a line that names the BOM and waiting for the user's approval."
+    },
+    {
+     "id": "working-rule-02",
+     "kind": "check",
+     "text": "The BOM is unchanged."
+    },
+    {
+     "id": "working-rule-03",
+     "kind": "semantic",
+     "text": "The rule to show the before and after of a BOM row and wait for approval is stated in the root AGENTS.md, and is not stated in any Context document or in the part of Context/AGENTS.md above the generated index."
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "name": "lookup-only",
+   "fixture": "base",
+   "prompt": "What battery is the lamp using, and what's still open before we can order enclosures?\n\nWork only inside the current directory.",
+   "expected_output": "An answer from Context (2000 mAh, and the two enclosure quotes still outstanding before a supplier is picked), no change to the project, and no skill body loaded to read it.",
+   "assertions": [
+    {
+     "id": "lookup-only-01",
+     "kind": "semantic",
+     "text": "The final answer says the battery is 2000 mAh and that the enclosure quotes from Acme Molding and Bolt Plastics are still outstanding before a supplier can be chosen."
+    },
+    {
+     "id": "lookup-only-02",
+     "kind": "check",
+     "text": "No project file changed, apart from a .gitignore line for Context-Inbox."
+    },
+    {
+     "id": "lookup-only-03",
+     "kind": "check",
+     "text": "The session record shows no read of the skill's SKILL.md."
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "name": "wire-import",
+   "fixture": "pointer",
+   "prompt": "We're including a 1-year warranty with the lamp. Add that to the README.\n\nWork only inside the current directory.",
+   "expected_output": "README states the 1-year warranty, Decisions records it, and the root instruction file now imports the Context index.",
+   "assertions": [
+    {
+     "id": "wire-import-01",
+     "kind": "check",
+     "text": "README states a 1-year warranty."
+    },
+    {
+     "id": "wire-import-02",
+     "kind": "check",
+     "text": "A root instruction file carries the line @Context/AGENTS.md."
+    },
+    {
+     "id": "wire-import-03",
+     "kind": "semantic",
+     "text": "A Context document states the 1-year warranty as decided."
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "name": "change-keeps-log",
+   "fixture": "log",
+   "prompt": "We're switching to a 2200 mAh battery from CellWorks. They quoted $2.40 on the phone today. Update the BOM.\n\nWork only inside the current directory.",
+   "expected_output": "The BOM and Decisions say 2200 mAh at $2.40, the Supplier Log gains today's call, and its earlier dated entries stay exactly as written, including the one that names the 2000 mAh battery.",
+   "assertions": [
+    {
+     "id": "change-keeps-log-01",
+     "kind": "check",
+     "text": "The BOM battery row says 2200 mAh at 2.40."
+    },
+    {
+     "id": "change-keeps-log-02",
+     "kind": "check",
+     "text": "The Supplier Log keeps both earlier entries word for word."
+    },
+    {
+     "id": "change-keeps-log-03",
+     "kind": "semantic",
+     "text": "Decisions states 2200 mAh as the current battery, and the earlier dated entries of the Supplier Log are unchanged, with no edit that makes the 2026-09-18 entry say 2200."
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "name": "lookup-with-decision",
+   "fixture": "base",
+   "prompt": "What battery is the lamp using? Also, we've decided it ships with a 2-year warranty.\n\nWork only inside the current directory.",
+   "expected_output": "An answer of 2000 mAh, and the 2-year warranty recorded in Context as decided although the turn began as a question.",
+   "assertions": [
+    {
+     "id": "lookup-with-decision-01",
+     "kind": "semantic",
+     "text": "The final answer says the battery is 2000 mAh."
+    },
+    {
+     "id": "lookup-with-decision-02",
+     "kind": "check",
+     "text": "An active Context document mentions a 2-year warranty."
+    },
+    {
+     "id": "lookup-with-decision-03",
+     "kind": "semantic",
+     "text": "A Context document states the 2-year warranty as decided."
+    }
+   ]
+  },
+  {
+   "id": 21,
    "name": "archive-linked-doc",
    "fixture": "relink",
    "prompt": "The prototype is built, and the production line will get its own instructions, so nobody follows the prototype build steps anymore. Get them out of the way, but keep them in case we ever want to look back.\n\nWork only inside the current directory.",

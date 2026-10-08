@@ -14,9 +14,9 @@ Tests the context-memory skill two ways. `generator.test.mjs` checks the generat
 ## Agent sessions
 
 1. Pick a run folder outside the home folder and every Git repository, with no spaces in its path, and export it as `EVAL_ROOT`. `run.py` refuses anything else, because a session there could discover the owner's own skills.
-2. Snapshot the skill twice under `EVAL_ROOT`: as last committed (`git archive HEAD | tar -x -C "$EVAL_ROOT/skill-old/context-memory"`) and as changed (`SKILL.md`, `package.json`, and `scripts/` copied into `$EVAL_ROOT/skill-new/context-memory`).
+2. Snapshot the skill twice under `EVAL_ROOT`: as last committed (`git archive HEAD | tar -x -C "$EVAL_ROOT/skill-old/context-memory"`) and as changed (`SKILL.md`, `package.json`, `scripts/`, and `references/` copied into `$EVAL_ROOT/skill-new/context-memory`).
 3. Write a jobs file with one line per session, `<round>-<eval name>-<arm>-<model> <eval name> <opus|sol> <snapshot folder> 1200`, naming the arms `old` and `new`, for every eval with both models and both arms.
-4. `python batch.py <jobs file> 6` runs them, six at a time. Each session runs until its process exits or the timeout passes, so work it hands to a background agent counts.
+4. `python batch.py <jobs file> 6` runs them, six at a time. Lower the number on a machine short of memory. Each session runs until its process exits or the timeout passes, so work it hands to a background agent counts.
 5. `python grade.py <jobs file> <round>` grades every check assertion, marks a missing or unfinished session as failing, and writes a blind package per eval under `$EVAL_ROOT/judge/<round>-<eval>`, with the whole resulting project, the diff, and the final reply for each letter.
 6. Read each `key.json` yourself and give `CRITIC.md` to two critics per eval, each told the letters it judges: a GPT critic for the Claude-built letters and a Claude critic for the GPT-built ones. They grade the semantic assertions and list blocking findings.
 7. Answer every blocking finding against a new session in writing, resume the critic with the answers, and record how each settled in `critic-answers.json` in that judge folder.

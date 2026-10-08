@@ -28,11 +28,25 @@ def git(work, *args):
     return subprocess.run(['git', *args], cwd=work, capture_output=True, text=True)
 
 
+def index_parts(text):
+    """The authored text, the marker, and the (path, description) entries of a Context index, in either entry format."""
+    authored = re.split(r'<!-- (?:context-memory:|BEGIN )', text)[0].strip()
+    marker = re.search(r'last consolidation pass \S+ cadence \d+ days', text.replace(',', ''))
+    entries = {(m.group(1) or m.group(2), m.group(3)) for m in re.finditer(r'(?m)^- (?:\[.*?\]\(<(.*?)>\)|(.+?)) → (.*)$', text)}
+    return authored, marker.group(0) if marker else None, entries
+
+
 def changed(work, baseline):
     names = git(work, 'diff', '--name-only', baseline).stdout.splitlines()
     # Ignored files count too, so a restraint eval sees an inbox the session created and ignored.
     names += git(work, 'ls-files', '--others').stdout.splitlines()
-    return sorted({n.strip().strip('"') for n in names if n.strip() and not n.strip('"').startswith(SKIP)})
+    out = {n.strip().strip('"') for n in names if n.strip() and not n.strip('"').startswith(SKIP)}
+    # A regenerated index that lists the same documents in another entry format is not a change
+    # to the project's knowledge, so a snapshot with an older generator is graded on what it wrote.
+    index = 'Context/AGENTS.md'
+    if index in out and index_parts(git(work, 'show', f'{baseline}:{index}').stdout) == index_parts(read(work, index)):
+        out.discard(index)
+    return sorted(out)
 
 
 def read(work, rel):
@@ -119,8 +133,26 @@ def links_to_archived_steps(work):
 
 
 def skill_read(base):
-    """A hint, not proof: whether the session record shows the skill's SKILL.md being opened."""
-    return bool(re.search(r'context-memory[\\/]+SKILL\.md|Skill.{0,80}context-memory', read(base, 'session.jsonl')))
+    """Whether the session record shows the skill's SKILL.md being opened, by a skill tool call or by a
+    read or shell command that names the file. The list of installed skills a session starts with is not a read."""
+    for line in read(base, 'session.jsonl').splitlines():
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        calls = [c for c in (d.get('message') or {}).get('content') or [] if isinstance(c, dict) and c.get('type') == 'tool_use'] if d.get('type') == 'assistant' else []
+        for c in calls:
+            arg = json.dumps(c.get('input'))
+            if (c.get('name') == 'Skill' and 'context-memory' in arg) or re.search(r'context-memory[\\/]+SKILL\.md', arg):
+                return True
+        item = d.get('item') or {}
+        if d.get('type', '').startswith('item.') and re.search(r'context-memory[\\/]+SKILL\.md', json.dumps(item)):
+            return True
+    return False
+
+
+def imports_index(work):
+    return any(l.strip() == '@Context/AGENTS.md' for f in ('AGENTS.md', 'CLAUDE.md') for l in read(work, f).splitlines())
 
 
 def sanitize(text):
@@ -166,6 +198,20 @@ def checks(work, base, ch, session_dates):
         'create-context-02': lambda: bool(docs) and 'BEGIN context-memory index' in index and 'END context-memory index' in index and all(pathlib.PurePosixPath(d).name in index and has_frontmatter(t) for d, t in docs.items()),
         'create-context-03': lambda: own_ignore(work),
         'log-entry-01': lambda: (lambda log: '**2026-09-18, CellWorks:** confirmed the 2000 mAh battery at $2.10 for 100 units.' in log and '**2026-09-05, Lumen Co:** sent LED module samples. Price $1.20 each.' in log and bool(re.search(r'PortParts.{0,300}500|500.{0,300}PortParts', log, re.S)) and '0.31' in log)(read(work, 'Context/Supplier Log.md')),
+        'create-context-05': lambda: imports_index(work) and 'last consolidation pass none' in index,
+        'correction-final-01': lambda: (lambda rows: any('2200' in k for k in rows) and not any('2000' in k for k in rows))(bom(work)),
+        'correction-final-02': lambda: bool(docs) and not any('2000' in t for t in docs.values()),
+        'tentative-idea-01': lambda: readme_clean(work),
+        'tentative-idea-02': lambda: 'bom.csv' not in ch,
+        'working-rule-01': lambda: 'AGENTS.md' in ch and any(re.search(r'\bBOM\b|bom\.csv|bill of materials', l, re.I) and re.search(r'\bOK\b|approv|confirm|go-ahead|wait for', l, re.I) for l in read(work, 'AGENTS.md').splitlines()),
+        'working-rule-02': lambda: 'bom.csv' not in ch,
+        'lookup-only-02': lambda: all(f == '.gitignore' for f in ch) and all(l in ('', 'Context-Inbox/', '/Context-Inbox/') for l in gitignore_lines),
+        'lookup-only-03': lambda: not skill_read(base),
+        'wire-import-01': lambda: (lambda t: 'Trailhead Lamp' in t and bool(re.search(r'warranty', t, re.I)) and bool(re.search(r'1[- ]year|one[- ]year', t, re.I)))(read(work, 'README.md')),
+        'wire-import-02': lambda: imports_index(work),
+        'change-keeps-log-01': lambda: any('2200' in k and r['unit_cost'].strip() in ('2.40', '2.4') for k, r in bom(work).items()),
+        'change-keeps-log-02': lambda: (lambda log: '**2026-09-18, CellWorks:** confirmed the 2000 mAh battery at $2.10 for 100 units.' in log and '**2026-09-05, Lumen Co:** sent LED module samples. Price $1.20 each.' in log)(read(work, 'Context/Supplier Log.md')),
+        'lookup-with-decision-02': lambda: any(re.search(r'warranty', t, re.I) and re.search(r'2[- ]year|two[- ]year', t, re.I) for t in docs.values()),
         'archive-linked-doc-01': lambda: 'Context/Prototype Build Steps.md' not in docs and all(step in archived_text(work) for step in ('Solder the LED module to the driver board', 'Wire the battery through the charge controller', 'Fit everything in a 3D-printed test shell')),
         'archive-linked-doc-02': lambda: links_to_archived_steps(work) and not dangling(work),
         'ineligible-project-01': lambda: '$29' in read(work, 'README.md') and 'Trailhead Lamp' in read(work, 'README.md'),
