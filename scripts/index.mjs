@@ -60,7 +60,7 @@ const KNOWN_FLAGS = ["--help", "--force", "--nested", "--consolidated", "--check
 if (process.argv.includes("--help")) {
   console.log(
     "Usage: node scripts/index.mjs <path-to-Context> [--nested] [--links=<folder>] [--check] [--consolidated[=YYYY-MM-DD]] [--cadence=<days>] [--force]\n" +
-      "Regenerates the compact active index in <path>/AGENTS.md and reports its size in tokens, validates active frontmatter, warns about Context-Inbox, directory density, description shape, Markdown links that do not resolve, and an index no instruction file imports, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's .gitignore when it is missing. Every Archive folder is left out of the active index. Exits 1 when a document has invalid frontmatter or a pass record is refused.\n" +
+      "Regenerates the compact active index in <path>/AGENTS.md and reports its size in tokens, validates active frontmatter, warns about Context-Inbox, directory density, description shape, Markdown links that do not resolve, and an index no instruction file imports, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's root .gitignore when no .gitignore in the repository covers the inbox beside this Context. Every Archive folder is left out of the active index. Exits 1 when a document has invalid frontmatter or a pass record is refused.\n" +
       "Links: every inline Markdown link with a relative target is checked in every Markdown file under Context, Archive included. In the other Markdown files of the folder that holds Context, hidden folders included, only links that point into this Context or its Context-Inbox are checked. Letter case must match. Web addresses, absolute paths, same-file anchors, code, HTML blocks and comments, and reference-style links are not checked, and the part after # is ignored. A character written as a named reference other than amp, lt, gt, quot, or apos is not decoded, so write the character itself or percent-encode it.\n" +
       "Import: an @path line that resolves to this index is looked for in AGENTS.md and CLAUDE.md, from the folder that holds Context up to the repository root, outside comments and code.\n" +
       "  --nested            Also process every indexed Context directory in project folders up to two levels below this one's parent, each on its own, and name the ones with a pass due.\n" +
@@ -537,8 +537,9 @@ function importsOf(path) {
 // Checks that the index reaches a session: some instruction file between the Context and the
 // repository root imports it, and a CLAUDE.md beside an AGENTS.md that carries the import
 // imports that AGENTS.md, since a harness that finds its own file does not read the other.
-// Returns the folder whose instruction file carries the import or should, and a warning, which
-// is null when the index loads or no instruction file could carry it.
+// Returns the folder whose instruction file carries the import or should, the files there that
+// import the index, and a warning, which is null when the index loads or no instruction
+// file could carry it.
 function indexHome(contextRoot) {
   const index = join(contextRoot, "AGENTS.md");
   const dirs = [];
@@ -557,15 +558,15 @@ function indexHome(contextRoot) {
     const importers = filesIn(dir).filter((path) => importsOf(path).some((target) => samePath(target, index)));
     if (!importers.length) continue;
     const [agents, claude] = INSTRUCTION_FILES.map((name) => join(dir, name));
-    if (importers.some((path) => samePath(path, claude)) || !existsSync(claude)) return { home: dir, warning: null };
-    if (importsOf(claude).some((target) => samePath(target, agents))) return { home: dir, warning: null };
-    return { home: dir, warning: `${claude} does not import ${INSTRUCTION_FILES[0]}, so a harness that reads only ${INSTRUCTION_FILES[1]} never reaches the import of this index in ${agents}. Add a line reading @${INSTRUCTION_FILES[0]} to ${claude}.` };
+    if (importers.some((path) => samePath(path, claude)) || !existsSync(claude)) return { home: dir, importers, warning: null };
+    if (importsOf(claude).some((target) => samePath(target, agents))) return { home: dir, importers, warning: null };
+    return { home: dir, importers, warning: `${claude} does not import ${INSTRUCTION_FILES[0]}, so a harness that reads only ${INSTRUCTION_FILES[1]} never reaches the import of this index in ${agents}. Add a line reading @${INSTRUCTION_FILES[0]} to ${claude}.` };
   }
   const home = dirs.find((dir) => filesIn(dir).length) ?? (inRepository ? dirs[dirs.length - 1] : null);
-  if (!home) return { home: dirs[0], warning: null };
+  if (!home) return { home: dirs[0], importers: [], warning: null };
   const target = filesIn(home)[0] ?? join(home, INSTRUCTION_FILES[0]);
   const fromHome = relative(home, index).replaceAll("\\", "/");
-  return { home, warning: `No instruction file imports this index, so a session starts without it. Add a line reading @${fromHome.replaceAll(" ", "\\ ")} to ${target}, on a line of its own outside any code block, below a sentence telling a harness that does not follow imports to read ${fromHome} before working.` };
+  return { home, importers: [], warning: `No instruction file imports this index, so a session starts without it. Add a line reading @${fromHome.replaceAll(" ", "\\ ")} to ${target}, on a line of its own outside any code block, below a sentence telling a harness that does not follow imports to read ${fromHome} before working.` };
 }
 
 // Regenerates one Context directory. Returns whether it had active errors and whether a
@@ -733,7 +734,7 @@ function processContext(contextRoot, { label, recordPass }) {
     if (errors.length) {
       errors.push("--consolidated refused: fix the frontmatter errors above, then record the pass");
     } else if (tempFiles && tempFiles.length) {
-      errors.push(`--consolidated refused: ${TEMP} still holds ${tempFiles.length} file(s). Drain it, then record the pass`);
+      errors.push(`--consolidated refused: ${tempPath} still holds ${tempFiles.length} file(s). Drain it, then record the pass`);
     } else if (unresolvedLinks) {
       errors.push(`--consolidated refused: ${unresolvedLinks} Markdown link(s) do not resolve. Fix them, then record the pass`);
     } else {
@@ -741,7 +742,7 @@ function processContext(contextRoot, { label, recordPass }) {
       recorded = true;
     }
   }
-  const { home, warning: notImported } = indexHome(contextRoot);
+  const { home, importers, warning: notImported } = indexHome(contextRoot);
   const fromHome = `${relative(home, contextRoot).replaceAll("\\", "/")}/`;
   const marker = `<!-- ${SKILL_NAME}: last consolidation pass ${lastPass}, cadence ${cadenceDays} days -->`;
 
@@ -804,11 +805,17 @@ function processContext(contextRoot, { label, recordPass }) {
     }
   }
 
-  const parentAgentsPath = resolve(contextRoot, "..", "AGENTS.md");
-  if (existsSync(parentAgentsPath)) {
-    const combinedBytes = indexBytes + Buffer.byteLength(readFileSync(parentAgentsPath, "utf8"), "utf8");
+  // Each file that imports this index loads with it, wherever it sits, and so does an
+  // instruction file beside it that it imports. With no import yet, the file the import
+  // belongs in is measured, since a reader is sent from it to the index.
+  const beside = INSTRUCTION_FILES.map((name) => join(home, name)).filter((path) => existsSync(path));
+  const together = importers.length
+    ? beside.filter((path) => importers.some((file) => samePath(file, path) || importsOf(file).some((target) => samePath(target, path))))
+    : beside.slice(0, 1);
+  if (together.length) {
+    const combinedBytes = indexBytes + together.reduce((sum, file) => sum + Buffer.byteLength(readFileSync(file, "utf8"), "utf8"), 0);
     if (combinedBytes > COMBINED_WARNING_BYTES) {
-      warnings.push(`root and Context AGENTS.md total ${combinedBytes} bytes of project instructions, past ${COMBINED_WARNING_BYTES}. Move project knowledge out of the instruction file into the Context document that owns it, and shorten the index.`);
+      warnings.push(`${together.join(", ")} and this index total ${combinedBytes} bytes of project instructions, past ${COMBINED_WARNING_BYTES}. Move project knowledge out of the instruction file into the Context document that owns it, and shorten the index.`);
     }
   }
 
@@ -817,7 +824,7 @@ function processContext(contextRoot, { label, recordPass }) {
     const drain = checkOnly ? "Tell the session that owns this Context to drain it." : "Drain it in this turn: file what each item holds into the document that owns it, then remove the folder.";
     urgent.push(`${tempPath} holds ${tempFiles.length} file(s): ${shown}. ${drain}`);
   } else if (tempFiles) {
-    warnings.push(`${TEMP} is empty. Remove it.`);
+    warnings.push(`${tempPath} is empty. Remove it.`);
   }
 
   if (notImported) urgent.push(notImported);
@@ -857,10 +864,41 @@ function processContext(contextRoot, { label, recordPass }) {
   return { failed: errors.length > 0, due };
 }
 
+// The lines in a repository's .gitignore files that name one inbox, in the order Git applies
+// them: each file from the repository root down to the folder that holds the inbox, top to
+// bottom, so the last one decides. A bare name matches at any depth below its file. A name
+// with a leading slash, or a path with a slash inside it, matches only from its own folder.
+function inboxRules(repo, tempPath) {
+  const dirs = [];
+  for (let dir = dirname(tempPath); ; dir = dirname(dir)) {
+    dirs.unshift(dir);
+    if (dir === repo) break;
+  }
+  const rules = [];
+  for (const dir of dirs) {
+    const file = join(dir, ".gitignore");
+    if (!existsSync(file)) continue;
+    const fromHere = relative(dir, tempPath).replaceAll("\\", "/");
+    readFileSync(file, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/).forEach((text, index) => {
+      const raw = text.replace(/\s+$/, "");
+      if (!raw || raw.startsWith("#")) return;
+      const negated = raw.startsWith("!");
+      const pattern = (negated ? raw.slice(1) : raw).replace(/\/$/, "");
+      const anywhere = pattern === TEMP || pattern === `**/${TEMP}`;
+      const fromItsFolder = pattern === `/${fromHere}` || (fromHere.includes("/") && pattern === fromHere);
+      if (anywhere || fromItsFolder) rules.push({ file, line: index + 1, raw, negated });
+    });
+  }
+  return rules;
+}
+
 // Every repository that holds a Context directory carries its own rule keeping Context-Inbox out
 // of Git, whether or not an inbox exists yet, so a global exclude on one machine is not enough.
-// Adds the rule to the repository's root .gitignore when no .gitignore in the repository supplies
-// one, and returns what it did and anything still wrong. Outside a Git repository it does nothing.
+// The inbox sits beside its Context, which may be nested inside the repository. When no
+// .gitignore in the repository covers it, the bare rule goes in the root .gitignore, where one
+// line covers the inbox beside every Context in the repository. Returns what it did and anything
+// still wrong, naming the inbox by its path from the repository root. Outside a Git repository
+// it does nothing.
 function ignoreInbox(tempPath) {
   const notes = [];
   let repo = dirname(tempPath);
@@ -870,7 +908,7 @@ function ignoreInbox(tempPath) {
     repo = up;
   }
   const gitignore = join(repo, ".gitignore");
-  const listed = new RegExp(`^/?${TEMP}/?\\s*$`, "m");
+  const inbox = `${relative(repo, tempPath).replaceAll("\\", "/")}/`;
   const git = (args) => {
     try {
       return { code: 0, out: execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
@@ -879,33 +917,42 @@ function ignoreInbox(tempPath) {
     }
   };
   // The rule must come from a .gitignore inside the repository, not from .git/info/exclude or a
-  // global excludes file, and must cover the folder itself, not one path in it. Without Git, the
-  // root .gitignore is read directly.
-  const ownRule = () => {
-    const r = git(["check-ignore", "--no-index", "-v", `${relative(repo, tempPath).replaceAll("\\", "/")}/`]);
-    if (r.code === -1 || r.code === 128) return listed.test(existsSync(gitignore) ? readFileSync(gitignore, "utf8") : "");
+  // global excludes file, and must cover the folder itself, not one path in it. Git decides.
+  // Without Git, the .gitignore files above the inbox are read directly.
+  const covered = () => {
+    const r = git(["check-ignore", "--no-index", "-v", inbox]);
+    if (r.code === -1 || r.code === 128) {
+      const last = inboxRules(repo, tempPath).at(-1);
+      return Boolean(last && !last.negated);
+    }
     if (r.code !== 0) return false;
     const source = r.out.split(":")[0].replaceAll("\\", "/");
     return basename(source) === ".gitignore" && !source.startsWith(".git/") && !/^([A-Za-z]:)?\//.test(source);
   };
-  if (!ownRule()) {
-    const existing = existsSync(gitignore) ? readFileSync(gitignore, "utf8") : "";
-    if (listed.test(existing)) {
-      notes.push({ warn: `${TEMP}/ is listed in ${gitignore} but another rule overrides it. Remove the overriding rule so Git ignores the inbox.` });
+  if (!covered()) {
+    const last = inboxRules(repo, tempPath).at(-1);
+    // A rule anchored to the root covers only the inbox beside a Context at the root.
+    const rootOnly = dirname(tempPath) !== repo && existsSync(gitignore) && new RegExp(`^/${TEMP}/?\\s*$`, "m").test(readFileSync(gitignore, "utf8").replace(/^\uFEFF/, ""));
+    const why = rootOnly ? `, because the rule /${TEMP}/ there covers only an inbox at the repository root and this one is at ${inbox}` : "";
+    if (last && last.negated) {
+      notes.push({ warn: `Git does not ignore ${inbox}: the rule ${last.raw} at ${last.file}:${last.line} re-includes it. Remove that rule, then run the generator again.` });
+    } else if (last) {
+      notes.push({ warn: `Git does not ignore ${inbox} although ${last.file}:${last.line} lists it, so a rule this script does not read re-includes it. Look for a later line that starts with ! in the .gitignore files between ${repo} and the inbox.` });
     } else if (checkOnly) {
-      notes.push({ warn: `${TEMP}/ is not in ${gitignore}. A run without --check adds it.` });
+      notes.push({ warn: `No .gitignore in this repository covers ${inbox}. A run without --check adds ${TEMP}/ to ${gitignore}${why}.` });
     } else {
+      const existing = existsSync(gitignore) ? readFileSync(gitignore, "utf8") : "";
       const eol = existing.includes("\r\n") ? "\r\n" : "\n";
       appendFileSync(gitignore, `${existing && !existing.endsWith("\n") ? eol : ""}${TEMP}/${eol}`);
-      notes.push(ownRule()
-        ? { info: `Added ${TEMP}/ to ${gitignore}` }
-        : { warn: `Added ${TEMP}/ to ${gitignore}, but Git still does not ignore the inbox. Find the rule that overrides it.` });
+      notes.push(covered()
+        ? { info: `Added ${TEMP}/ to ${gitignore}${why}` }
+        : { warn: `Added ${TEMP}/ to ${gitignore}, but Git still does not ignore ${inbox}. Run git check-ignore -v on that path's parent folders to find the rule that re-includes it.` });
     }
   }
   const tracked = git(["ls-files", "--", tempPath]);
   if (tracked.code === 0 && tracked.out.trim()) {
     const count = tracked.out.trim().split("\n").length;
-    notes.push({ warn: `${count} file(s) in ${TEMP} are already tracked by Git, so the ignore rule does not cover them. File them into Context, then remove them with git rm.` });
+    notes.push({ warn: `${count} file(s) in ${inbox} are already tracked by Git, so the ignore rule does not cover them. File them into Context, then remove them with git rm.` });
   }
   return notes;
 }

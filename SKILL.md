@@ -3,7 +3,7 @@ name: "context-memory"
 description: "Use for any work in a project where a Context directory exists, the user asks for one, or the project's instructions call for one, from investigation and routine edits to handoffs between sessions, even when nobody asks to save or remember anything. Captures and organizes the knowledge a project needs across turns and sessions, kept as what is true now: decisions, preferences, opinions, plans, next steps, current state, and discoveries. Also use to create, file, index, audit, tidy, or consolidate that Context, to drain a Context-Inbox directory or act on a due consolidation pass, and whenever a harness offers its own memory, recall, or auto-save store for that project's knowledge. Not for personal reminders or preferences that span unrelated projects. Code documentation, READMEs, and comments stay with the source, but work on them still triggers capture of project knowledge."
 metadata:
   author: "Leeor Nahum"
-  version: "4.0.0"
+  version: "4.0.1"
 ---
 
 # Context Memory

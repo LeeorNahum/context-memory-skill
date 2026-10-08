@@ -58,7 +58,7 @@ const ignoreLines = (root) => read(join(root, ".gitignore")).split(/\r?\n/).filt
   const root = project();
   writeFileSync(join(root, ".gitignore"), "Context-Inbox/\n!Context-Inbox/\n");
   const out = run(root);
-  check("an overriding rule is reported, not duplicated", ignoreLines(root) === 1 && /overrides it/.test(out.stderr));
+  check("a rule that re-includes the inbox is named with its line, and no second rule is added", ignoreLines(root) === 1 && /Git does not ignore Context-Inbox\/: the rule !Context-Inbox\/ at .*\.gitignore:2 re-includes it/.test(out.stderr));
   rmSync(root, { recursive: true, force: true });
 }
 {
@@ -551,6 +551,154 @@ const imports = (out) => /imports this index|does not import AGENTS\.md/.test(ou
   const once = run(root, "--check", `--links=${join(workspace, "storefront")}`);
   check("--check with --links reads the folder for this run and does not call a current index out of date", unresolved(once).length === 1 && !once.stderr.includes("missing or out of date") && !read(join(root, "Context/AGENTS.md")).includes("also check links in"));
   rmSync(workspace, { recursive: true, force: true });
+}
+// A Context nested inside a repository: its inbox sits beside it, and the ignore rule may be in
+// the root .gitignore, in the nested folder, in both, or in neither.
+{
+  const nestedProject = (rootIgnore, mindIgnore) => {
+    const root = mkdtempSync(join(tmpdir(), "cm-gen-"));
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    mkdirSync(join(root, "Minds/Clerk/Context"), { recursive: true });
+    writeFileSync(join(root, "Minds/Clerk/Context/Notes.md"), doc("Notes", { created: TODAY }));
+    if (rootIgnore !== null) writeFileSync(join(root, ".gitignore"), rootIgnore);
+    if (mindIgnore !== null) writeFileSync(join(root, "Minds/Clerk/.gitignore"), mindIgnore);
+    return root;
+  };
+  const go = (root, ...flags) => spawnSync("node", [GENERATOR, join(root, "Minds/Clerk/Context"), ...flags], { encoding: "utf8" });
+  const gitIgnores = (root) => spawnSync("git", ["check-ignore", "--no-index", "-q", "Minds/Clerk/Context-Inbox/"], { cwd: root }).status === 0;
+  const inboxNotes = (out) => (out.stdout + out.stderr).split("\n").filter((l) => /Context-Inbox/.test(l) && !/Checked links/.test(l));
+
+  let root = nestedProject("/Context-Inbox/\n", null);
+  let out = go(root);
+  check("a root rule anchored to the root is not blamed on an override for a nested inbox", !/overrides it|re-includes it/.test(out.stderr), inboxNotes(out).join(" | "));
+  check("the nested inbox gets an unanchored rule in the root .gitignore, with the reason", gitIgnores(root) && read(join(root, ".gitignore")) === "/Context-Inbox/\nContext-Inbox/\n" && /Added Context-Inbox\/ to .*\.gitignore.*covers only an inbox at the repository root/.test(out.stdout) && out.stdout.includes("Minds/Clerk/Context-Inbox/"), inboxNotes(out).join(" | "));
+  const settled = read(join(root, ".gitignore"));
+  out = go(root);
+  check("a second run on the nested Context adds nothing and says nothing", settled === read(join(root, ".gitignore")) && inboxNotes(out).length === 0, inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("/Context-Inbox/\n", null);
+  out = go(root, "--check");
+  check("--check names the nested inbox and the file a run would add the rule to, and writes nothing", /Minds\/Clerk\/Context-Inbox\//.test(out.stderr) && /covers only an inbox at the repository root/.test(out.stderr) && /A run without --check adds Context-Inbox\/ to /.test(out.stderr) && read(join(root, ".gitignore")) === "/Context-Inbox/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n", null);
+  out = go(root);
+  check("an unanchored root rule already covers a nested inbox", inboxNotes(out).length === 0 && read(join(root, ".gitignore")) === "Context-Inbox/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("node_modules/\n", "/Context-Inbox/\n");
+  out = go(root);
+  check("a rule in the nested folder's own .gitignore covers its inbox, and the root file is left alone", inboxNotes(out).length === 0 && read(join(root, ".gitignore")) === "node_modules/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject(null, null);
+  out = go(root);
+  check("with no .gitignore anywhere the rule goes in a new root .gitignore", gitIgnores(root) && read(join(root, ".gitignore")) === "Context-Inbox/\n" && !existsSync(join(root, "Minds/Clerk/.gitignore")), inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("node_modules/\n", null);
+  out = go(root);
+  check("a root .gitignore with no inbox rule gets the line without a reason that does not apply", gitIgnores(root) && read(join(root, ".gitignore")) === "node_modules/\nContext-Inbox/\n" && /Added Context-Inbox\/ to /.test(out.stdout) && !/covers only/.test(out.stdout + out.stderr), inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n", "!Context-Inbox/\n");
+  out = go(root);
+  check("a rule in the nested folder that re-includes the inbox is named with its file and line", !gitIgnores(root) && /Git does not ignore Minds\/Clerk\/Context-Inbox\/: the rule !Context-Inbox\/ at .*Clerk.\.gitignore:1 re-includes it/.test(out.stderr) && read(join(root, ".gitignore")) === "Context-Inbox/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("/Context-Inbox/\n!Minds/Clerk/Context-Inbox/\n", null);
+  out = go(root);
+  check("a root rule that re-includes the nested inbox by its path is named, and no line is added", /the rule !Minds\/Clerk\/Context-Inbox\/ at .*\.gitignore:2 re-includes it/.test(out.stderr) && read(join(root, ".gitignore")) === "/Context-Inbox/\n!Minds/Clerk/Context-Inbox/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n!*Inbox/\n", null);
+  out = go(root);
+  check("a re-including rule this script cannot read is reported without a wrong cause or a second line", /Git does not ignore Minds\/Clerk\/Context-Inbox\/ although .*\.gitignore:1 lists it/.test(out.stderr) && read(join(root, ".gitignore")) === "Context-Inbox/\n!*Inbox/\n", inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("/Context-Inbox/\n", null);
+  mkdirSync(join(root, "Minds/Clerk/Context-Inbox"));
+  writeFileSync(join(root, "Minds/Clerk/Context-Inbox/note.txt"), "a note\n");
+  execFileSync("git", ["add", "-A"], { cwd: root });
+  out = go(root);
+  check("tracked files and a waiting inbox are named by the nested inbox's path", /file\(s\) in Minds\/Clerk\/Context-Inbox\/ are already tracked by Git/.test(out.stderr) && out.stderr.includes(`${join(root, "Minds", "Clerk", "Context-Inbox")} holds 1 file(s)`), inboxNotes(out).join(" | "));
+  const refused = go(root, "--consolidated");
+  check("a refused pass names the nested inbox", refused.status === 1 && refused.stderr.includes(`--consolidated refused: ${join(root, "Minds", "Clerk", "Context-Inbox")} still holds 1 file(s)`));
+  rmSync(join(root, "Minds/Clerk/Context-Inbox/note.txt"));
+  check("an empty nested inbox is named by its path", go(root).stderr.includes(`${join(root, "Minds", "Clerk", "Context-Inbox")} is empty. Remove it.`));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n", null);
+  writeFileSync(join(root, "AGENTS.md"), "# League\n");
+  writeFileSync(join(root, "Minds/Clerk/AGENTS.md"), `# Clerk\n\n@Context/AGENTS.md\n\n${"A rule for this mind. ".repeat(1600)}\n`);
+  out = go(root);
+  const size = out.stderr.split("\n").find((l) => /bytes of project instructions/.test(l)) ?? "";
+  check("the instruction-size warning names the file that imports a nested index, not the root", size.includes(join(root, "Minds", "Clerk", "AGENTS.md")) && !/root and Context/.test(size), size.slice(0, 200));
+  rmSync(root, { recursive: true, force: true });
+
+  const sizeLine = (o) => o.stderr.split("\n").find((l) => /bytes of project instructions/.test(l)) ?? "";
+  const bulk = "A rule for this project. ".repeat(1500);
+  root = nestedProject("Context-Inbox/\n", null);
+  writeFileSync(join(root, "AGENTS.md"), `# League\n\n@Minds/Clerk/Context/AGENTS.md\n\n${bulk}\n`);
+  check("a root file that imports a nested index is the one measured and named", sizeLine(go(root)).startsWith(`WARNING: ${join(root, "AGENTS.md")} and this index total`), sizeLine(go(root)).slice(0, 160));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n", null);
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), `@Context/AGENTS.md\n\n${bulk}\n`);
+  check("an index imported by CLAUDE.md alone is measured with that file", sizeLine(go(root)).startsWith(`WARNING: ${join(root, "Minds", "Clerk", "CLAUDE.md")} and this index total`), sizeLine(go(root)).slice(0, 160));
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), "@AGENTS.md\n@Context/AGENTS.md\n");
+  writeFileSync(join(root, "Minds/Clerk/AGENTS.md"), `# Clerk\n\n${bulk}\n`);
+  check("a CLAUDE.md that imports the index and AGENTS.md is measured with both", sizeLine(go(root)).startsWith(`WARNING: ${join(root, "Minds", "Clerk", "AGENTS.md")}, ${join(root, "Minds", "Clerk", "CLAUDE.md")} and this index total`), sizeLine(go(root)).slice(0, 220));
+  writeFileSync(join(root, "Minds/Clerk/AGENTS.md"), "# Clerk\n\n@Context/AGENTS.md\n");
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), `@Context/AGENTS.md\n\n${bulk}\n`);
+  check("when both files import the index, both are measured", sizeLine(go(root)).startsWith(`WARNING: ${join(root, "Minds", "Clerk", "AGENTS.md")}, ${join(root, "Minds", "Clerk", "CLAUDE.md")} and this index total`), sizeLine(go(root)).slice(0, 220));
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), "# Claude\n");
+  writeFileSync(join(root, "Minds/Clerk/AGENTS.md"), `# Clerk\n\nRead the index in Context first.\n\n${bulk}\n`);
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), "@Context/AGENTS.md\n");
+  check("a large file beside the importing one that it does not import is not counted", sizeLine(go(root)) === "", sizeLine(go(root)).slice(0, 220));
+  writeFileSync(join(root, "Minds/Clerk/CLAUDE.md"), "# Claude\n");
+  check("with no import yet, the file the import belongs in is still measured", sizeLine(go(root)).startsWith(`WARNING: ${join(root, "Minds", "Clerk", "AGENTS.md")} and this index total`), sizeLine(go(root)).slice(0, 220));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("Context-Inbox/\n", null);
+  writeFileSync(join(root, "AGENTS.md"), `# League\n\n${bulk}\n`);
+  writeFileSync(join(root, "Minds/Clerk/AGENTS.md"), "# Clerk\n\n@Context/AGENTS.md\n");
+  check("a large file that does not load with the nested index is not counted", sizeLine(go(root)) === "", sizeLine(go(root)).slice(0, 160));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("/Context-Inbox/\n!Context-Inbox/\n", null);
+  check("the re-include message says to run again, since removing one rule may not be enough", /re-includes it\. Remove that rule, then run the generator again\./.test(go(root).stderr));
+  rmSync(root, { recursive: true, force: true });
+
+  root = nestedProject("\uFEFF/Context-Inbox/\n", null);
+  out = go(root);
+  check("a root rule behind a byte order mark is still recognized as anchored to the root", gitIgnores(root) && /Added Context-Inbox\/ to .*covers only an inbox at the repository root/.test(out.stdout), inboxNotes(out).join(" | "));
+  rmSync(root, { recursive: true, force: true });
+
+  // Without Git on the PATH the .gitignore files are read directly.
+  const noGit = { encoding: "utf8", env: { ...process.env, PATH: dirname(process.execPath), Path: dirname(process.execPath) } };
+  const blind = (r, ...flags) => spawnSync(process.execPath, [GENERATOR, join(r, "Minds/Clerk/Context"), ...flags], noGit);
+  if (spawnSync("git", ["--version"], noGit).status === 0) {
+    check("the tests can hide Git from the generator", false, "git is still reachable with the reduced PATH");
+  } else {
+    root = nestedProject("\uFEFF**/Context-Inbox/   \n# Context-Inbox/ is ignored above\n", null);
+    out = blind(root);
+    check("without Git, a rule with a comment above it, a BOM, the ** form, and trailing spaces is read as covering", inboxNotes(out).length === 0 && read(join(root, ".gitignore")) === "\uFEFF**/Context-Inbox/   \n# Context-Inbox/ is ignored above\n", inboxNotes(out).join(" | "));
+    rmSync(root, { recursive: true, force: true });
+
+    root = nestedProject("/Context-Inbox/\n", null);
+    out = blind(root);
+    check("without Git, a rule anchored to the root still gets the bare line for a nested inbox", read(join(root, ".gitignore")) === "/Context-Inbox/\nContext-Inbox/\n" && /Added Context-Inbox\/ to .*covers only an inbox at the repository root/.test(out.stdout), inboxNotes(out).join(" | "));
+    const once = read(join(root, ".gitignore"));
+    check("without Git, a second run adds nothing", inboxNotes(blind(root)).length === 0 && once === read(join(root, ".gitignore")));
+    rmSync(root, { recursive: true, force: true });
+
+    root = nestedProject("Context-Inbox/\n", "!**/Context-Inbox/\n");
+    out = blind(root);
+    check("without Git, a re-including rule is still named and no line is added", /the rule !\*\*\/Context-Inbox\/ at .*Clerk.\.gitignore:1 re-includes it/.test(out.stderr) && read(join(root, ".gitignore")) === "Context-Inbox/\n", inboxNotes(out).join(" | "));
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${!r.ok && r.detail ? ` (${r.detail})` : ""}`);

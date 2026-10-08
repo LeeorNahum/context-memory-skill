@@ -20,7 +20,7 @@ A record that only ever gains entries, such as a log, grows without end by desig
 
 ## Context-Inbox
 
-`Context-Inbox/` is an optional folder beside `Context/` where the user or a helper drops material for the agent that owns the Context to file. The rule for an inbox is zero. The agent that owns the Context does not use the inbox and files straight into Context. Every Git repository that holds a Context directory lists `Context-Inbox/` in its `.gitignore`, whether or not an inbox exists yet, and the generator adds the line when it is missing.
+`Context-Inbox/` is an optional folder beside `Context/` where the user or a helper drops material for the agent that owns the Context to file. The rule for an inbox is zero. The agent that owns the Context does not use the inbox and files straight into Context. Every Git repository that holds a Context directory lists `Context-Inbox/` in its `.gitignore`, whether or not an inbox exists yet, and the generator adds the line when it is missing. The line it adds is the bare name in the root `.gitignore`, with no leading slash, so it also covers the inbox beside a Context nested deeper in the repository. A rule that already covers the inbox, in any `.gitignore` of the repository, is left as it is.
 
 To drain it, inspect every item, move current knowledge into its active owner, preserve worthwhile history in Archive, discard only clear noise, then remove the empty folder. A source kept whole in Archive gets frontmatter as it is filed, so the Archive index can say what it holds. The inbox is one route among several, and filing from it is editorial: each item takes the form its content needs, as the skill's Filing section says of anything handed over to be saved.
 
