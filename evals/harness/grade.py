@@ -25,7 +25,7 @@ MISSPELLED = ('rechargable', 'recieve')
 
 
 def git(work, *args):
-    return subprocess.run(['git', *args], cwd=work, capture_output=True, text=True)
+    return subprocess.run(['git', *args], cwd=work, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
 
 def index_parts(text):
@@ -172,6 +172,14 @@ def answer(base, model):
     return ''
 
 
+def charger_text(work):
+    """The text of the charger project's Context and Context-Inbox, outside any Archive."""
+    if not (work / 'charger').is_dir():
+        return ''
+    return '\n'.join(p.read_text(encoding='utf-8', errors='replace') for d in ('charger/Context', 'charger/Context-Inbox')
+                     for p in (work / d).rglob('*') if p.is_file() and 'Archive' not in p.parts and p.name != 'AGENTS.md')
+
+
 def checks(work, base, ch, session_dates):
     enc = enclosure(work)
     led = bom(work).get('led module')
@@ -216,6 +224,15 @@ def checks(work, base, ch, session_dates):
         'archive-linked-doc-02': lambda: links_to_archived_steps(work) and not dangling(work),
         'ineligible-project-01': lambda: '$29' in read(work, 'README.md') and 'Trailhead Lamp' in read(work, 'README.md'),
         'ineligible-project-02': lambda: not (work / 'Context').exists() and 'Context-Inbox' not in read(work, '.gitignore'),
+        'supplier-email-01': lambda: (lambda d: 'Dana' in d and bool(re.search(r'thank', d, re.I)))(read(work, 'drafts/lumen-reply.txt')),
+        'supplier-email-02': lambda: any(re.search(r'2026-10-30|Oct(?:ober)?\.? 30', t) for t in docs.values()),
+        'group-chat-01': lambda: 'notes/lumen-chat.txt' not in ch and any('Marco' in t and re.search(r'2026-10-30|Oct(?:ober)?\.? 30', t) for t in docs.values()),
+        'sibling-project-01': lambda: '1.5' in charger_text(work),
+        'aside-open-01': lambda: 'IPX4' in read(work, 'README.md'),
+        'musing-restraint-01': lambda: readme_clean(work),
+        'musing-restraint-02': lambda: 'bom.csv' not in ch,
+        'source-reschedule-01': lambda: 'Dana' in read(work, 'drafts/lumen-ack.txt'),
+        'source-reschedule-02': lambda: any(re.search(r'2026-11-06|Nov(?:ember)?\.? 6\b', t) for t in docs.values()),
     }
 
 

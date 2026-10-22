@@ -40,11 +40,11 @@ Change is read from each document's `date_created` and `date_modified` and, in a
 
 Read every active document, not only the ones the generator flagged, and put the directory back in order:
 
-- **Ownership.** One current fact has one owner. Merge duplicates and settle copies that disagree. A contradiction is resolved when the evidence in Context settles it, and otherwise recorded in its owning document as unresolved.
+- **Ownership.** One current fact has one owner. Merge duplicates and settle copies that disagree. A contradiction is resolved when the evidence in Context settles it, by the ranking of sources in the skill's Capture section, and otherwise recorded in its owning document as unresolved. An event or deadline that active documents give more than one current date or time, outside dated records, is such a contradiction, and a line that says something is still owed or unanswered is checked against the newest sources Context holds.
 - **Stale status.** A status document states the present. Remove finished items and dated sections that stack up, after giving each durable fact in them an owner.
 - **Agent rules in topical documents.** Rules for how an agent works, including how the user wants to be worked with, move to the nearest applicable `AGENTS.md`, wherever they were found: a document about working with the user, the authored part of `Context/AGENTS.md`, or a harness memory store.
 - **History.** Archive finished one-time briefs, completed runbooks, superseded plans, and log entries nobody would reach for.
-- **Shape.** Fix descriptions that summarize or run long, directories past their density, filenames that say little, an active file named as an archive, a document in the wrong format for its use, and navigation that no longer leads a reader to an owner.
+- **Shape.** Fix descriptions that summarize or run long, directories past their density, filenames that say little, an active file named as an archive, a document in the wrong format for its use, and navigation that no longer leads a reader to an owner. Drop the leading date or event from a description once its item is done.
 - **Links.** A pass reaches past the directory. It checks links into and out of the directory, covers the links and statements about this Context that live outside it, as the skill's Filing section requires for every move, and fixes every link the generator reports.
 - **Inbox.** Drain it.
 

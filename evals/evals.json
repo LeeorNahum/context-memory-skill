@@ -489,6 +489,175 @@
      "text": "No document still presents the prototype build steps as current instructions or says they sit at their old place."
     }
    ]
+  },
+  {
+   "id": 22,
+   "name": "supplier-email",
+   "fixture": "base",
+   "prompt": "Dana at Lumen emailed me on Friday Oct 16: \"We'll ship the sample LED modules in two weeks. I'm out the week of Oct 26, so Marco will cover anything urgent.\" Please draft a short thank-you reply to Dana and save it as drafts/lumen-reply.txt. Don't send it.\n\nWork only inside the current directory.",
+   "expected_output": "A saved draft, and Context holding Lumen's sample shipment as due 2026-10-30 (two weeks from the email, not from today), Dana's absence the week of Oct 26 with Marco covering, all as Lumen's, with the due date where a session meets it before then, and a closing line saying what was saved and when it comes up.",
+   "assertions": [
+    {
+     "id": "supplier-email-01",
+     "kind": "check",
+     "text": "drafts/lumen-reply.txt exists, names Dana, and thanks her."
+    },
+    {
+     "id": "supplier-email-02",
+     "kind": "check",
+     "text": "An active Context document gives the sample shipment date as 2026-10-30."
+    },
+    {
+     "id": "supplier-email-03",
+     "kind": "semantic",
+     "text": "Context states that Lumen, not the user, will ship the samples by 2026-10-30, counted from the email of Oct 16 and not from the day of the session, and that Dana is out the week of Oct 26 with Marco covering. No document dates the shipment from the session's own day."
+    },
+    {
+     "id": "supplier-email-04",
+     "kind": "semantic",
+     "text": "The shipment date is written where a session meets it before it falls due: in Status, or in a document whose index description leads with 'Read by 2026-10-30:'."
+    },
+    {
+     "id": "supplier-email-05",
+     "kind": "semantic",
+     "text": "The final answer says what was saved and that the shipment date, 2026-10-30, is when it comes up."
+    }
+   ]
+  },
+  {
+   "id": 23,
+   "name": "group-chat",
+   "fixture": "chat",
+   "prompt": "I exported my Lumen group chat to notes/lumen-chat.txt. Go through it and tell me what I need to know.\n\nWork only inside the current directory.",
+   "expected_output": "Context holds Marco's datasheet commitment (by 2026-10-30), the user's own forecast commitment (Wednesday Oct 21), Lumen's closure Nov 26 and 27, and the 12V driver board, each with the right owner, and none of the small talk.",
+   "assertions": [
+    {
+     "id": "group-chat-01",
+     "kind": "check",
+     "text": "An active Context document names Marco and gives 2026-10-30 for the datasheet, and notes/lumen-chat.txt is unchanged."
+    },
+    {
+     "id": "group-chat-02",
+     "kind": "semantic",
+     "text": "Context attributes the revised datasheet by 2026-10-30 to Marco, the forecast to the user (due 2026-10-21), and the closure on Nov 26 and 27 to Lumen. The datasheet is not attributed to Dana or to the user."
+    },
+    {
+     "id": "group-chat-03",
+     "kind": "semantic",
+     "text": "Context records the driver board as 12V and holds none of the pure small talk, such as the thumbs up, the greetings, or the acknowledgements."
+    },
+    {
+     "id": "group-chat-04",
+     "kind": "semantic",
+     "text": "The final answer lists what was saved and when each dated item comes up."
+    }
+   ]
+  },
+  {
+   "id": 24,
+   "name": "sibling-project",
+   "fixture": "sibling",
+   "prompt": "What input voltage did we settle on for the charger? Also, we decided the charger cable is 1.5 m.\n\nWork only inside the current directory.",
+   "expected_output": "The answer is 20 V, found in the charger project, and the 1.5 m cable is filed in the charger's Context, not the lamp's.",
+   "assertions": [
+    {
+     "id": "sibling-project-01",
+     "kind": "check",
+     "text": "The charger's Context (or its Context-Inbox) now holds the 1.5 m cable."
+    },
+    {
+     "id": "sibling-project-02",
+     "kind": "semantic",
+     "text": "The final answer gives 20 V USB-C power delivery as the settled input and does not say it was never saved."
+    },
+    {
+     "id": "sibling-project-03",
+     "kind": "semantic",
+     "text": "The 1.5 m cable is recorded as decided in the charger's Context, and the lamp's own Context documents hold no charger decisions of their own."
+    },
+    {
+     "id": "sibling-project-04",
+     "kind": "semantic",
+     "text": "The final answer says where the cable decision was saved."
+    }
+   ]
+  },
+  {
+   "id": 25,
+   "name": "aside-open",
+   "fixture": "base",
+   "prompt": "Add a line to the README that the lamp is rated IPX4. Also, Marco at the print shop said he might be able to run 20 blue resin shells in November, and I keep thinking we should put a solar panel on top someday.\n\nWork only inside the current directory.",
+   "expected_output": "README states IPX4, and Context holds Marco's possible November run and the solar panel idea as open, in the speaker's words, neither as a decision.",
+   "assertions": [
+    {
+     "id": "aside-open-01",
+     "kind": "check",
+     "text": "README states the IPX4 rating."
+    },
+    {
+     "id": "aside-open-02",
+     "kind": "semantic",
+     "text": "Context records Marco's possible November run of 20 blue resin shells as a maybe from Marco, not as an order, a plan, or a decision."
+    },
+    {
+     "id": "aside-open-03",
+     "kind": "semantic",
+     "text": "Context records the solar panel as an open idea, in the user's tentative words (such as someday), and not as decided or planned."
+    }
+   ]
+  },
+  {
+   "id": 26,
+   "name": "musing-restraint",
+   "fixture": "base",
+   "prompt": "Fix the typos in README.md. Thinking out loud while you're at it: we could go white instead of blue, or add a solar lid, or drop the USB-C port for wireless. I haven't thought any of it through, and I'd probably say no to most of it.\n\nWork only inside the current directory.",
+   "expected_output": "A corrected README, an unchanged BOM, and none of the three ideas recorded as decided, chosen, or planned. Blue stays the enclosure color.",
+   "assertions": [
+    {
+     "id": "musing-restraint-01",
+     "kind": "check",
+     "text": "README exists and no longer contains the misspellings."
+    },
+    {
+     "id": "musing-restraint-02",
+     "kind": "check",
+     "text": "The BOM is unchanged."
+    },
+    {
+     "id": "musing-restraint-03",
+     "kind": "semantic",
+     "text": "No Context document and no instruction file states white, a solar lid, or wireless as decided, chosen, or planned, Decisions still gives blue as the enclosure color, and anything recorded reads as the user's open musing."
+    }
+   ]
+  },
+  {
+   "id": 27,
+   "name": "source-reschedule",
+   "fixture": "reschedule",
+   "prompt": "Dana's latest email is in notes/lumen-update.txt. Draft a short reply thanking her and save it as drafts/lumen-ack.txt. Don't send it.\n\nWork only inside the current directory.",
+   "expected_output": "A saved draft, and Context giving 2026-11-06 as the sample shipment date wherever it gave 2026-10-30, with the testing schedule moved or marked unconfirmed, the forecast no longer listed as owed, and the November price recorded as held.",
+   "assertions": [
+    {
+     "id": "source-reschedule-01",
+     "kind": "check",
+     "text": "drafts/lumen-ack.txt exists and names Dana."
+    },
+    {
+     "id": "source-reschedule-02",
+     "kind": "check",
+     "text": "An active Context document gives 2026-11-06 for the samples."
+    },
+    {
+     "id": "source-reschedule-03",
+     "kind": "semantic",
+     "text": "Status and Sample Testing each give the shipment as 2026-11-06 or link to the document that does, neither keeps 2026-10-30 as a possible date, and nothing in Sample Testing still schedules testing from the old date."
+    },
+    {
+     "id": "source-reschedule-04",
+     "kind": "semantic",
+     "text": "Status no longer lists the 6-month forecast as something the user still owes Lumen, and Context records that the November LED price is held."
+    }
+   ]
   }
  ]
 }

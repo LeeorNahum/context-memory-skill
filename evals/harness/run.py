@@ -24,7 +24,7 @@ HOME = pathlib.Path.home()
 ROOT = pathlib.Path(os.environ.get('EVAL_ROOT', '')).resolve()
 # Claude Code resolves the `opus` alias to the latest Opus. Codex has no family alias, so its
 # current Sol identifier is pinned here and changes when Codex does.
-MODELS = {'opus': 'opus', 'sol': 'gpt-6-sol'}
+MODELS = {'opus': 'opus', 'sol': 'gpt-6.1-sol'}
 EFFORT = 'medium'
 MAINTAINER_ONLY = shutil.ignore_patterns('.git', 'evals', 'README.md', 'AGENTS.md', 'node_modules')
 GIT = ['git', '-c', 'user.name=eval', '-c', 'user.email=eval@example.invalid', '-c', 'core.autocrlf=false']

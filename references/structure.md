@@ -11,19 +11,19 @@ How a Context directory is set up, where it lives, and how its documents are res
    ```markdown
    ## Context
 
-   `Context/` is this project's memory. Its index loads through the import below. If no Context Index is in your context, read `Context/AGENTS.md` before working here.
+   `Context/` is this project's memory. Its index loads through the import below. If no Context Index is in your context, read `Context/AGENTS.md` before working here. Looking something up needs only the index and the documents it names. When the work decides, learns, plans, or changes something the project should remember, load the context-memory skill and record it.
 
    @Context/AGENTS.md
    ```
 
 4. Run the generator. It writes the index, adds `Context-Inbox/` to the repository's `.gitignore`, and reports anything left to fix.
 
-The import line stands alone on its line, outside any code span or fence, and a path with a space takes a backslash before the space. When `Context/` has no instruction file beside it, the line goes in the nearest one above it, with the path from that file. The sentence above it is the fallback, and both stay:
+The import line stands alone on its line, outside any code span or fence, and a path with a space takes a backslash before the space. When `Context/` has no instruction file beside it, the line goes in the nearest one above it, with the path from that file. The paragraph above it is the fallback, and both stay:
 
-| Harness | What the two lines do |
+| Harness | What the paragraph and the import line do |
 | --- | --- |
 | Follows `@path` imports in instruction files | Loads the index at session start, for the main session and for workers that load project instructions |
-| Reads `AGENTS.md` as plain text | Sees the sentence and the path, and reads the index when it starts work |
+| Reads `AGENTS.md` as plain text | Sees the paragraph and the path, reads the index when it starts work, and loads the skill only when the work has something to record |
 | Reads an instruction file of its own in place of `AGENTS.md` | Needs that file to import `AGENTS.md`, or to carry the import line itself. The generator reports a `CLAUDE.md` that sits beside `AGENTS.md` without doing either, and cannot see a file that is missing |
 
 Each import is paid at every session start, so an index worth importing is one kept small. The generator reports its size in tokens.
