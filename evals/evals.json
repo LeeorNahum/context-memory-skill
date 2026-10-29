@@ -658,6 +658,45 @@
      "text": "Status no longer lists the 6-month forecast as something the user still owes Lumen, and Context records that the November LED price is held."
     }
    ]
+  },
+  {
+   "id": 28,
+   "name": "sweep-settled",
+   "fixture": "sweep",
+   "prompt": "I exported my texts to notes/texts.txt. Go through them for the lamp project and tell me what I still need to do.\n\nWork only inside the current directory.",
+   "expected_output": "The answer gives sending Dana the samples' shipping address and Lumen's overdue $84 invoice as what is left, and does not raise the bank alert for the deposit Bolt confirmed, the forecast already in sent/, the expo booth Marco booked, or the charger's cert form as a lamp item. Lamp Status keeps only those two steps, and the cert form is filed in the charger's Context, not the lamp's.",
+   "assertions": [
+    {
+     "id": "sweep-settled-01",
+     "kind": "check",
+     "text": "notes/texts.txt is unchanged."
+    },
+    {
+     "id": "sweep-settled-02",
+     "kind": "semantic",
+     "text": "The final answer gives sending Dana the shipping address for the samples as something the user still needs to do, and raises Lumen's $84 sample invoice, due 2026-10-16, as unconfirmed (no payment found, or asking whether it was paid), not as definitely unpaid or definitely paid."
+    },
+    {
+     "id": "sweep-settled-03",
+     "kind": "semantic",
+     "text": "The final answer does not raise the TD Bank fraud alert, the Bolt deposit, the 6-month forecast, or the Makers Expo booth, whether as an action, a check, a question, or a list of items already handled, and does not present the charger's cert form as an action or to-do of any kind. A line saying which documents were updated, or where the charger reminder was filed, is allowed."
+    },
+    {
+     "id": "sweep-settled-04",
+     "kind": "semantic",
+     "text": "Lamp Status no longer lists the deposit, the forecast, or the expo email as still to do, still lists the shipping address for Dana as the user's open step and the $84 invoice with its payment unconfirmed, records Bolt's tooling start only as Bolt's stated plan, not as having happened, and no active lamp Context document records the charger's cert form under any wording."
+    },
+    {
+     "id": "sweep-settled-05",
+     "kind": "check",
+     "text": "The charger's Context or Context-Inbox gives the cert form's Nov 6 deadline."
+    },
+    {
+     "id": "sweep-settled-06",
+     "kind": "semantic",
+     "text": "The charger's Context or Context-Inbox records Priya's reminder that the charger's UL cert form is due Friday 2026-11-06, without naming who files it, since the text does not say."
+    }
+   ]
   }
  ]
 }

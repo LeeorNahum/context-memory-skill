@@ -233,6 +233,8 @@ def checks(work, base, ch, session_dates):
         'musing-restraint-02': lambda: 'bom.csv' not in ch,
         'source-reschedule-01': lambda: 'Dana' in read(work, 'drafts/lumen-ack.txt'),
         'source-reschedule-02': lambda: any(re.search(r'2026-11-06|Nov(?:ember)?\.? 6\b', t) for t in docs.values()),
+        'sweep-settled-01': lambda: 'notes/texts.txt' not in ch,
+        'sweep-settled-05': lambda: bool(re.search(r'2026-11-06|Nov(?:ember)?\.? 6\b', charger_text(work))),
     }
 
 
