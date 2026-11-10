@@ -4,7 +4,7 @@ Tests the context-memory skill two ways. `generator.test.mjs` checks the generat
 
 ## Needs
 
-- The `claude` CLI signed in, for Claude Opus sessions, and the `codex` CLI signed in, for GPT Sol sessions.
+- The `claude` CLI signed in, for Claude Opus sessions and the optional Claude Haiku ones, and the `codex` CLI signed in, for GPT Sol sessions.
 - Python 3.11 or later, Git, and Node.js 20 or later.
 
 ## Generator contract
@@ -15,7 +15,7 @@ Tests the context-memory skill two ways. `generator.test.mjs` checks the generat
 
 1. Pick a run folder outside the home folder and every Git repository, with no spaces in its path, and export it as `EVAL_ROOT`. `run.py` refuses anything else, because a session there could discover the owner's own skills.
 2. Snapshot the skill twice under `EVAL_ROOT`: as last committed (`git archive HEAD | tar -x -C "$EVAL_ROOT/skill-old/context-memory"`) and as changed (`SKILL.md`, `package.json`, `scripts/`, and `references/` copied into `$EVAL_ROOT/skill-new/context-memory`).
-3. Write a jobs file with one line per session, `<round>-<eval name>-<arm>-<model> <eval name> <opus|sol> <snapshot folder> 1200`, naming the arms `old` and `new`, for every eval with both models and both arms.
+3. Write a jobs file with one line per session, `<round>-<eval name>-<arm>-<model> <eval name> <opus|sol|haiku> <snapshot folder> 1200`, naming the arms `old` and `new`, for every eval with both models and both arms. Haiku jobs are optional extras for evals where a smaller model is the likelier to miss a rule, and are graded and compared with the rest.
 4. `python batch.py <jobs file> 6` runs them, six at a time. Lower the number on a machine short of memory. Each session runs until its process exits or the timeout passes, so work it hands to a background agent counts.
 5. `python grade.py <jobs file> <round>` grades every check assertion, marks a missing or unfinished session as failing, and writes a blind package per eval under `$EVAL_ROOT/judge/<round>-<eval>`, with the whole resulting project, the diff, and the final reply for each letter.
 6. Read each `key.json` yourself and give `CRITIC.md` to two critics per eval, each told the letters it judges: a GPT critic for the Claude-built letters and a Claude critic for the GPT-built ones. They grade the semantic assertions and list blocking findings.

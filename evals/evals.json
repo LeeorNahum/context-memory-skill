@@ -697,6 +697,79 @@
      "text": "The charger's Context or Context-Inbox records Priya's reminder that the charger's UL cert form is due Friday 2026-11-06, without naming who files it, since the text does not say."
     }
    ]
+  },
+  {
+   "id": 29,
+   "name": "recording-deadline",
+   "fixture": "recording",
+   "prompt": "I dropped the Audiote recording of our deck session in the inbox. File it.\n\nWork only inside the current directory.",
+   "expected_output": "The session files the recording, counts the promised deck from the recording's start to 6:20 PM, and captures every actionable line with its words, time, and stated owner.",
+   "assertions": [
+    {
+     "id": "recording-deadline-01",
+     "kind": "check",
+     "text": "The Context-Inbox folder no longer exists, and nothing under Mail/ or Deck/ changed."
+    },
+    {
+     "id": "recording-deadline-02",
+     "kind": "check",
+     "text": "An active Context document gives 6:20 PM for the deck to Victor, and none gives 7:20 PM."
+    },
+    {
+     "id": "recording-deadline-03",
+     "kind": "semantic",
+     "text": "Context gives the updated deck for Victor as due 2026-10-22 at about 6:20 PM, counted from the recording's 2:00 PM start, and no document counts it from 3:00 PM or from the day of the session. Its owner is Dana, or is marked unconfirmed, and is never Sam stated as fact."
+    },
+    {
+     "id": "recording-deadline-04",
+     "kind": "semantic",
+     "text": "Context captures each of these as an item that quotes its line, gives when it was said, and names the owner and due time someone stated or says that nobody stated them: Prof. Hale's ask that Maya's team see the prototype; telling Sam that Marco keeps the press free on Tuesday 2026-10-27 for the orange shirts; reading r/desksetup the week of 2026-10-26; the side graph kept, with no document saying it is dropped; and the competitor slide changes, with every competitor kept."
+    },
+    {
+     "id": "recording-deadline-05",
+     "kind": "semantic",
+     "text": "No document or answer states as fact that Sam promised to talk to Maya or that Sam said the line about pressing the shirts on Tuesday. Each goes to Dana, or its owner is marked unconfirmed. No item, active summary, or answer treats the haircut or anything nobody said as work, though the transcript kept whole in Archive may still hold the haircut line."
+    }
+   ]
+  },
+  {
+   "id": 30,
+   "name": "seen-in-passing",
+   "fixture": "passing",
+   "prompt": "Find Ruth's email about her student.\n\nWork only inside the current directory.",
+   "expected_output": "The session answers with Ruth's email, and on the way opens the other inbox items that bear on the project, records Bolt's ship date and the finish decision due Nov 9 and Sam's attachment, leaves the newsletter out, and says in a line what else it saved.",
+   "assertions": [
+    {
+     "id": "seen-in-passing-01",
+     "kind": "check",
+     "text": "Nothing under Mail/ changed."
+    },
+    {
+     "id": "seen-in-passing-02",
+     "kind": "check",
+     "text": "An active Context document gives the Nov 9 deadline for Bolt's finish and names silver or the backorder."
+    },
+    {
+     "id": "seen-in-passing-03",
+     "kind": "check",
+     "text": "An active Context document names the attachment Lamp enclosure renders.zip, and none mentions the newsletter."
+    },
+    {
+     "id": "seen-in-passing-04",
+     "kind": "semantic",
+     "text": "Context records Bolt's update as Bolt's word: the enclosures ship 2026-11-12, the black finish is backordered, and they ship in silver unless Dana tells Bolt by 2026-11-09 to wait, written as a decision Dana has not made yet, where a session meets it before 2026-11-09."
+    },
+    {
+     "id": "seen-in-passing-05",
+     "kind": "semantic",
+     "text": "Context records Sam's email of 2026-10-22 at 11:17 AM carrying Lamp enclosure renders.zip, where it lives, and whether it is saved into the project, and says nothing about what the renders show."
+    },
+    {
+     "id": "seen-in-passing-06",
+     "kind": "semantic",
+     "text": "The final answer gives Ruth's email (Maya Chen's team wants photos of the prototype and the app layout) and says briefly what else was saved, and does not say any email was sent or answered."
+    }
+   ]
   }
  ]
 }

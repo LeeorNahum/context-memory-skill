@@ -1,7 +1,7 @@
 """Run one clean-room session of a context-memory eval.
 
 Usage: python run.py <label> <eval name> <model> <skill-dir or -> [timeout-seconds]
-  model:  opus | sol
+  model:  opus | sol | haiku
 Environment: EVAL_ROOT, the run folder. It must sit outside the home folder and outside every
 Git repository, because Claude Code discovers skills in the .claude folders of the working
 directory's ancestors, and the home folder holds the owner's own.
@@ -22,9 +22,9 @@ EVALS = HERE.parent / 'evals.json'
 FIXTURES = HERE.parent / 'fixtures'
 HOME = pathlib.Path.home()
 ROOT = pathlib.Path(os.environ.get('EVAL_ROOT', '')).resolve()
-# Claude Code resolves the `opus` alias to the latest Opus. Codex has no family alias, so its
-# current Sol identifier is pinned here and changes when Codex does.
-MODELS = {'opus': 'opus', 'sol': 'gpt-6.1-sol'}
+# Claude Code resolves the `opus` and `haiku` aliases to the latest of each. Codex has no
+# family alias, so its current Sol identifier is pinned here and changes when Codex does.
+MODELS = {'opus': 'opus', 'haiku': 'haiku', 'sol': 'gpt-6.1-sol'}
 EFFORT = 'medium'
 MAINTAINER_ONLY = shutil.ignore_patterns('.git', 'evals', 'README.md', 'AGENTS.md', 'node_modules')
 GIT = ['git', '-c', 'user.name=eval', '-c', 'user.email=eval@example.invalid', '-c', 'core.autocrlf=false']
@@ -80,12 +80,12 @@ def main():
     cfg.mkdir()
     prompt = spec['prompt']
     env = {k: v for k, v in os.environ.items() if not k.startswith(('CLAUDE', 'CODEX', 'ANTHROPIC', 'OPENAI'))}
-    if model == 'opus':
+    if model in ('opus', 'haiku'):
         shutil.copyfile(HOME / '.claude/.credentials.json', cfg / '.credentials.json')
         if skill_dir:
             shutil.copytree(skill_dir, work / '.claude/skills' / skill_name(skill_dir), ignore=MAINTAINER_ONLY)
         env.update(CLAUDE_CONFIG_DIR=str(cfg), CLAUDE_CODE_DISABLE_AUTO_MEMORY='1', DISABLE_AUTOUPDATER='1', DISABLE_TELEMETRY='1')
-        args = [shutil.which('claude'), '-p', '--dangerously-skip-permissions', '--model', MODELS['opus'], '--effort', EFFORT,
+        args = [shutil.which('claude'), '-p', '--dangerously-skip-permissions', '--model', MODELS[model], '--effort', EFFORT,
                 '--strict-mcp-config', '--no-chrome', '--output-format', 'stream-json', '--verbose', prompt]
     elif model == 'sol':
         shutil.copyfile(HOME / '.codex/auth.json', cfg / 'auth.json')
@@ -95,7 +95,7 @@ def main():
         args = [shutil.which('codex'), 'exec', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--ignore-rules',
                 '-m', MODELS['sol'], '-c', f'model_reasoning_effort="{EFFORT}"', '--json', '-o', str(base / 'last-message.txt'), '-C', str(work), prompt]
     else:
-        sys.exit('model must be opus or sol')
+        sys.exit('model must be opus, haiku, or sol')
     # Installing the skill must not count as a change the session made. Grading compares the
     # project with this commit, so a session that commits its own work is still graded on it.
     subprocess.run([*GIT, 'add', '-A'], cwd=work, check=True)

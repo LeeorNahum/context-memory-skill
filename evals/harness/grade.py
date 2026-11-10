@@ -151,6 +151,10 @@ def skill_read(base):
     return False
 
 
+def under(ch, *folders):
+    return any(f.startswith(folders) for f in ch)
+
+
 def imports_index(work):
     return any(l.strip() == '@Context/AGENTS.md' for f in ('AGENTS.md', 'CLAUDE.md') for l in read(work, f).splitlines())
 
@@ -235,6 +239,11 @@ def checks(work, base, ch, session_dates):
         'source-reschedule-02': lambda: any(re.search(r'2026-11-06|Nov(?:ember)?\.? 6\b', t) for t in docs.values()),
         'sweep-settled-01': lambda: 'notes/texts.txt' not in ch,
         'sweep-settled-05': lambda: bool(re.search(r'2026-11-06|Nov(?:ember)?\.? 6\b', charger_text(work))),
+        'recording-deadline-01': lambda: not (work / 'Context-Inbox').exists() and not under(ch, 'Mail/', 'Deck/'),
+        'recording-deadline-02': lambda: any(re.search(r'18:20|6:20\s*(?:PM|p\.m\.)', t, re.I) for t in docs.values()) and not any(re.search(r'19:20|7:20\s*(?:PM|p\.m\.)', t, re.I) for t in docs.values()),
+        'seen-in-passing-01': lambda: not under(ch, 'Mail/'),
+        'seen-in-passing-02': lambda: any(re.search(r'2026-11-09|Nov(?:ember)?\.? 9\b', t) and re.search(r'silver|backorder', t, re.I) for t in docs.values()),
+        'seen-in-passing-03': lambda: any('enclosure renders' in t.lower() for t in docs.values()) and not any(re.search(r'Desk Weekly|newsletter', t, re.I) for t in docs.values()),
     }
 
 
@@ -244,7 +253,7 @@ def main():
     labels = [l for l in labels if l.startswith(f'{rnd}-')]
     rows = []
     for label in labels:
-        m = re.match(r'(\d+)-(.+)-(old|new|none)-(opus|sol)$', label)
+        m = re.match(r'(\d+)-(.+)-(old|new|none)-(opus|sol|haiku)$', label)
         name, arm, model = m.group(2), m.group(3), m.group(4)
         base = ROOT / 'builds' / label
         work = base / 'work'
