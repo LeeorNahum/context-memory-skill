@@ -446,6 +446,25 @@ const imports = (out) => /imports this index|does not import AGENTS\.md/.test(ou
   rmSync(root, { recursive: true, force: true });
 }
 {
+  const root = project({ git: false });
+  const tool = join(root, "Context/Booth Video");
+  for (const dir of ["node_modules/puppeteer", "__pycache__", "build", "Archive/node_modules/old"]) mkdirSync(join(tool, dir), { recursive: true });
+  writeFileSync(join(tool, ".gitignore"), "node_modules/\nbuild/\n");
+  writeFileSync(join(tool, "node_modules/puppeteer/README.md"), "# Puppeteer\n\nSee [the docs](docs/api.md).\n");
+  writeFileSync(join(tool, "node_modules/puppeteer/index.js"), "export {};\n");
+  writeFileSync(join(tool, "__pycache__/mix.cpython-312.pyc"), "");
+  writeFileSync(join(tool, "build/Render Notes.md"), page("Render Notes", "How the loop was rendered."));
+  writeFileSync(join(tool, "booth-loop.mp4"), "");
+  writeFileSync(join(tool, "Archive/node_modules/old/README.md"), "# Old\n");
+  writeFileSync(join(tool, "Archive/Old Cut.md"), "The first cut.\n");
+  const out = run(root);
+  const index = read(join(root, "Context/AGENTS.md"));
+  check("files in node_modules and __pycache__ are neither documents nor assets, and their links are not checked", out.status === 0 && !/node_modules|__pycache__/.test(index + out.stderr) && out.stdout.includes("left out 1 asset(s)") && unresolved(out).length === 0, out.stdout + out.stderr);
+  check("a folder named build, or one a .gitignore lists, is still Context", index.includes("Booth Video/build/Render Notes.md → "));
+  check("an Archive folder skips node_modules in its count and its own index", out.stdout.includes("left 1 archived file(s)") && !read(join(tool, "Archive/AGENTS.md")).includes("node_modules"), out.stdout);
+  rmSync(root, { recursive: true, force: true });
+}
+{
   const workspace = mkdtempSync(join(tmpdir(), "cm-gen-"));
   const root = project({ root: join(workspace, "lamp") });
   mkdirSync(join(workspace, "storefront"));

@@ -27,6 +27,12 @@ const MARKUP = new Set([".md", ".html"]);
 const ARCHIVE = "Archive";
 const TEMP = "Context-Inbox";
 const PLACEHOLDERS = new Set([".gitkeep", ".gitignore", ".DS_Store", "Thumbs.db"]);
+// Folders a package manager or an interpreter fills, which hold no project knowledge, so no
+// walk enters them. They are matched by exact name, without Git, because a Context may sit
+// outside a repository and .gitignore says what is not committed, not what is not knowledge.
+// Hidden folders such as .git and .venv are already left out of the documents. Build and dist
+// are not here, because people name their own folders that way.
+const INSTALLED = new Set(["node_modules", "__pycache__"]);
 const REQUIRED = ["name", "description", "date_created", "date_modified"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 // The index is imported at every session start, so its cost is reported in tokens. Index
@@ -50,18 +56,18 @@ const DEFAULT_CADENCE_DAYS = 7;
 // How many directory levels below the Context's parent --nested looks for other
 // Context directories that already carry an index.
 const NESTED_DEPTH = 2;
-const NESTED_SKIP = new Set([ARCHIVE, TEMP, "node_modules"]);
+const NESTED_SKIP = new Set([ARCHIVE, TEMP, ...INSTALLED]);
 // Folders the link check never enters. An inbox is on its way out, so its own links
 // are not worth fixing. Other hidden folders are read, because instruction files that
 // link into Context often live in one.
-const LINK_SKIP = new Set([TEMP, "node_modules", ".git"]);
+const LINK_SKIP = new Set([TEMP, ".git", ...INSTALLED]);
 const KNOWN_FLAGS = ["--help", "--force", "--nested", "--consolidated", "--check"];
 
 if (process.argv.includes("--help")) {
   console.log(
     "Usage: node scripts/index.mjs <path-to-Context> [--nested] [--links=<folder>] [--check] [--consolidated[=YYYY-MM-DD]] [--cadence=<days>] [--force]\n" +
-      "Regenerates the compact active index in <path>/AGENTS.md and reports its size in tokens, validates active frontmatter, warns about Context-Inbox, directory density, description shape, Markdown links that do not resolve, and an index no instruction file imports, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's root .gitignore when no .gitignore in the repository covers the inbox beside this Context. Every Archive folder is left out of the active index. Exits 1 when a document has invalid frontmatter or a pass record is refused.\n" +
-      "Links: every inline Markdown link with a relative target is checked in every Markdown file under Context, Archive included. In the other Markdown files of the folder that holds Context, hidden folders included, only links that point into this Context or its Context-Inbox are checked. Letter case must match. Web addresses, absolute paths, same-file anchors, code, HTML blocks and comments, and reference-style links are not checked, and the part after # is ignored. A character written as a named reference other than amp, lt, gt, quot, or apos is not decoded, so write the character itself or percent-encode it.\n" +
+      "Regenerates the compact active index in <path>/AGENTS.md and reports its size in tokens, validates active frontmatter, warns about Context-Inbox, directory density, description shape, Markdown links that do not resolve, and an index no instruction file imports, says when a consolidation pass is due, and adds Context-Inbox/ to the repository's root .gitignore when no .gitignore in the repository covers the inbox beside this Context. Every Archive folder is left out of the active index. No document is read from a hidden, node_modules, or __pycache__ folder, and no link check enters node_modules or __pycache__. Exits 1 when a document has invalid frontmatter or a pass record is refused.\n" +
+      "Links: every inline Markdown link with a relative target is checked in every Markdown file under Context, Archive included. In the other Markdown files of the folder that holds Context, hidden folders other than .git included, only links that point into this Context or its Context-Inbox are checked. Letter case must match. Web addresses, absolute paths, same-file anchors, code, HTML blocks and comments, and reference-style links are not checked, and the part after # is ignored. A character written as a named reference other than amp, lt, gt, quot, or apos is not decoded, so write the character itself or percent-encode it.\n" +
       "Import: an @path line that resolves to this index is looked for in AGENTS.md and CLAUDE.md, from the folder that holds Context up to the repository root, outside comments and code.\n" +
       "  --nested            Also process every indexed Context directory in project folders up to two levels below this one's parent, each on its own, and name the ones with a pass due.\n" +
       "  --links=<folder>    Also look in this folder, such as a sibling repository or the rest of a project whose Context sits in a subfolder, for links into this Context, remembered for this Context. Repeat it to name several. --links=none forgets them.\n" +
@@ -169,10 +175,10 @@ function parseFrontmatter(raw, ext) {
   return { fields, badLines };
 }
 
-// Files under a directory, ignoring only placeholder files such as .gitkeep.
+// Files under a directory, ignoring placeholder files such as .gitkeep and installed folders.
 function listFiles(dir, out = []) {
   for (const entry of readdirSync(dir).sort()) {
-    if (PLACEHOLDERS.has(entry)) continue;
+    if (PLACEHOLDERS.has(entry) || INSTALLED.has(entry)) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) listFiles(full, out);
     else out.push(entry);
@@ -426,8 +432,8 @@ function brokenLinks(file, { only = null, text = null } = {}) {
   return broken;
 }
 
-// Markdown files under a folder, for the link check. Git's own folder, node_modules, and
-// inboxes are not entered, links to other folders are not followed, and `skip` holds the
+// Markdown files under a folder, for the link check. Git's own folder, installed folders,
+// and inboxes are not entered, links to other folders are not followed, and `skip` holds the
 // folders already covered, so overlapping folders are read once.
 function markdownFiles(dir, skip, out = []) {
   const here = resolve(dir);
@@ -455,7 +461,7 @@ function writeArchiveIndex(archiveDir, contextRoot) {
   const entries = [];
   (function collect(dir) {
     for (const entry of readdirSync(dir).sort()) {
-      if (entry.startsWith(".") || entry === "AGENTS.md") continue;
+      if (entry.startsWith(".") || entry === "AGENTS.md" || INSTALLED.has(entry)) continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) {
         collect(full);
@@ -586,7 +592,7 @@ function processContext(contextRoot, { label, recordPass }) {
 
   function walk(dir) {
     for (const entry of readdirSync(dir).sort()) {
-      if (entry.startsWith(".")) continue;
+      if (entry.startsWith(".") || INSTALLED.has(entry)) continue;
       const full = join(dir, entry);
       const rel = relative(contextRoot, full).replaceAll("\\", "/");
       if (statSync(full).isDirectory()) {
